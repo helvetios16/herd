@@ -181,3 +181,15 @@ falta repetirla entera).
   (`Operation not permitted`, igual que el padre). Documentado en `SKILL.md` como mecanismo disponible
   para cuando estos CLIs necesiten auto-delegar de forma más segura — no cambia el patrón de
   lanzamiento estándar del Paso 4, que sigue siendo un proceso top-level por rol.
+- **v0.29** — decisión del usuario, revierte el diseño de v0.15-v0.28: Engram deja de registrarse como
+  servidor MCP en los CLIs lanzados vía Herdr. Motivo: el beneficio (que un CLI lanzado pudiera buscar
+  memoria por su cuenta) era marginal — el orquestador ya hace `mem_search` antes de lanzar cualquier
+  rol y puede pasar el contexto relevante directo en el prompt — y ese beneficio marginal había
+  generado toda una ronda de trabajo de seguridad (wrapper, verificación de sandbox por CLI, agentes
+  custom) para defender un acceso que no hacía falta dar. Aplicado: sacada la entrada `engram` de
+  `~/.codex/config.toml`, `~/.config/opencode/opencode.jsonc`, `~/.gemini/config/mcp_config.json` —
+  verificado con `codex mcp list` / `opencode mcp list` que ninguno lo ve más. `SKILL.md`: toda la
+  sección de Engram (search abierto, wrapper, agentes custom) reemplazada por una nota corta explicando
+  la decisión, con puntero al historial completo acá (v0.15-v0.28) para no perder el trabajo hecho. El
+  wrapper y los agentes custom `safe-reviewer` de Codex/opencode quedan en el filesystem sin usar, por
+  si se revierte esta decisión más adelante.

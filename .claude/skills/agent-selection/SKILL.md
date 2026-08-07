@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.28"
+  version: "0.29"
 ---
 
 ## Qué hace esta skill
@@ -211,152 +211,32 @@ el prompt a ciegas justo después de `pane run`.
   con el usuario antes de aplicarla. Verificación adversarial reduce el riesgo de un error lógico, pero
   no es una autorización de seguridad.
 
-**Memoria compartida (Engram) — search abierto, save centralizado en el orquestador:**
+**Memoria compartida (Engram) — exclusiva del orquestador, no registrada en los CLIs lanzados:**
 
-Engram (memoria persistente de Claude Code) puede registrarse como servidor MCP en el config propio de
-cada CLI (Codex: `~/.codex/config.toml`; opencode: `~/.config/opencode/opencode.jsonc`, clave `mcp`;
-Agy: `~/.gemini/config/mcp_config.json`) — no es automático, es setup previo, no algo que la skill haga
-al lanzar un pane. El binario `engram mcp --tools=<perfil>` soporta perfiles y también nombres de
-herramientas individuales (`--tools=mem_search`, `--tools=mem_save,mem_search`, etc.).
+**Decisión (v0.29, revierte el diseño de v0.15-v0.28)**: Engram NO se registra como servidor MCP en
+ningún CLI lanzado vía Herdr (Codex/opencode/Agy). El orquestador (esta sesión) es el único punto de
+contacto con Engram — hace `mem_search` antes de lanzar cualquier rol y pasa el contexto relevante
+directo en el prompt (modelo "push"), en vez de darle a cada CLI lanzado su propia conexión MCP para
+buscar por su cuenta (modelo "pull").
 
-- **Ejecutores/jueces lanzados vía Herdr**: registrar Engram con `--tools=mem_search` únicamente — les
-  sirve para no redescubrir contexto ya guardado, sin que cada uno escriba memoria por su cuenta.
-- **`mem_save` queda reservado al orquestador** (esta sesión) — mismo principio que el resto de esta
-  sección: un solo punto de control para lo que se persiste, después de filtrar/sintetizar. **Esto
-  también aplica a subagentes nativos lanzados con el Task tool, no solo a CLIs externos vía Herdr** —
-  probado en vivo: un subagente nativo tiene acceso completo y sin restricción a `mem_save` (vía MCP) y
-  al binario `engram` crudo (vía Bash), porque corre con el mismo nivel de confianza que la sesión
-  orquestadora — no hay wrapper por `PATH` ni sandbox que lo limite, a diferencia de Codex/opencode/Agy.
-  Un subagente de Task tool debe reportar sus hallazgos de vuelta al orquestador, no guardar memoria por
-  su cuenta.
-- **La restricción `--tools=` sola es una barrera blanda** — solo limita lo que el CLI ve a través de
-  *esa conexión MCP registrada*; un CLI con acceso a bash puede saltearla invocando el binario `engram`
-  directamente con otro perfil. Probado en vivo, encontró exactamente eso: opencode lo hizo y escribió
-  una memoria real.
-- **Barrera más dura: wrapper restringido delante del binario real**
-  (`~/.local/share/agent-selection/restricted-bin/engram`) — vive **fuera del árbol de cualquier
-  proyecto** a propósito: si viviera dentro de un repo que el CLI lanzado puede escribir (ej. Codex con
-  `-s workspace-write`), ese mismo CLI podría editar o borrar el wrapper antes de intentar el bypass.
-  Solo deja pasar `engram mcp --tools=mem_search [--project NAME]`, bloquea cualquier otra cosa
-  (`--tools=all`, `save`, `delete`, agregar `mem_save` a la lista, etc.) con exit 1, sin importar qué le
-  pida el modelo. Activarlo anteponiendo su directorio al `PATH` **dentro del mismo comando de
-  `pane run`** que lanza el CLI — no con `herdr tab create --env PATH=...`, que el shell interactivo
-  termina pisando con sus propios dotfiles (`.zshrc`/`brew shellenv` vuelven a poner
-  `/opt/homebrew/bin` primero):
-  ```bash
-  herdr pane run <pane_id> 'export PATH="$HOME/.local/share/agent-selection/restricted-bin:$PATH"; <comando del CLI>'
-  ```
-  Fuente completa del wrapper (crear en `~/.local/share/agent-selection/restricted-bin/engram`,
-  `chmod +x` — no se distribuye con el repo a propósito, ver arriba):
-  ```bash
-  #!/usr/bin/env bash
-  # Restricted wrapper for the real `engram` binary.
-  # Only allows: engram mcp --tools=mem_search [--project NAME]
-  # Blocks everything else (save, delete, --tools=all, --tools=mem_save, raw stdio tricks, etc.)
-  # so a spawned CLI (Codex/opencode/Agy) can search shared memory but cannot write to it,
-  # even if it tries to shell out and construct the call by hand.
-  set -euo pipefail
+**Por qué**: el beneficio de que un CLI lanzado pudiera buscar memoria por su cuenta (evitar
+redescubrir contexto) era marginal — el orquestador ya hace esa búsqueda antes de delegar cualquier
+rol — y ese único beneficio había generado una ronda entera de trabajo de seguridad (wrapper por
+`PATH`, verificación de sandbox por CLI, agentes custom de Codex/opencode) para defender un acceso que
+no hacía falta dar en primer lugar. Sacarlo de raíz es más simple que seguir defendiéndolo.
 
-  REAL_ENGRAM="/opt/homebrew/bin/engram"
-
-  deny() {
-    echo "engram (restricted): blocked — only 'engram mcp --tools=mem_search [--project NAME]' is permitted here. Attempted: engram $*" >&2
-    exit 1
-  }
-
-  if [ "${1:-}" != "mcp" ]; then
-    deny "$@"
-  fi
-  shift
-
-  tools_ok=0
-  i=0
-  args=("$@")
-  n=${#args[@]}
-  while [ "$i" -lt "$n" ]; do
-    arg="${args[$i]}"
-    case "$arg" in
-      --tools=mem_search)
-        tools_ok=1
-        ;;
-      --project)
-        i=$((i + 1))
-        if [ "$i" -ge "$n" ]; then
-          deny mcp "$@"
-        fi
-        ;;
-      *)
-        deny mcp "$@"
-        ;;
-    esac
-    i=$((i + 1))
-  done
-
-  if [ "$tools_ok" -ne 1 ]; then
-    deny mcp "$@"
-  fi
-
-  exec "$REAL_ENGRAM" mcp "$@"
-  ```
-- **Resultado real, probado con los tres CLIs**: **opencode** y **Agy** heredan el `PATH` del proceso
-  padre para su herramienta de shell — el wrapper bloqueó ambos intentos de bypass (`--tools=all` y
-  `--tools=mem_save`) con el mensaje del wrapper, exit 1. **Codex NO** — su herramienta de ejecución
-  reconstruye su propio entorno en sandbox y `which engram` ahí adentro sigue resolviendo al binario
-  real, ignorando el `PATH` exportado afuera. El wrapper por `PATH` no sirve como barrera para Codex.
-- **Barrera real para Codex: su propio sandbox de ejecución, no un truco de `PATH`.** Lanzarlo con
-  `-s workspace-write` (Codex solo puede escribir *dentro* del directorio de trabajo; todo lo de afuera
-  queda denegado por el sandbox del SO, macOS Seatbelt). `~/.engram/` (la base de datos real de Engram)
-  vive fuera de cualquier proyecto — probado en vivo: con `-s workspace-write`, `mem_search` funciona
-  normal (vía la conexión MCP propia, no pasa por el sandbox de shell) y el intento de bypass por bash
-  contra `engram mcp --tools=mem_save` fue denegado por el sandbox, no por una coincidencia de lock de
-  base de datos (se confirmó por separado: un `echo > archivo` fuera del workspace da
-  `Operation not permitted`, la misma clase de error). **`-s read-only` NO sirve** — es demasiado
-  estricto: bloquea hasta `mem_search`, porque el propio binario `engram` necesita escritura incidental
-  (migración de schema) para arrancar, sin importar qué tools se pidan.
-
-**Sub-agentes propios de Codex y opencode — verificados en vivo, más fuertes que el wrapper para su
-propia auto-delegación interna:**
-
-Codex y opencode tienen su propio mecanismo de "agente custom" con restricciones reales por rol —
-distinto de todo lo anterior, que trata al CLI como una caja negra desde afuera. Esto restringe lo que
-el CLI se delega *a sí mismo* cuando decide dividir una tarea internamente (`spawn_agent` en Codex,
-`task` en opencode) — no cambia cómo esta skill los lanza desde Herdr.
-
-- **Codex**: `.codex/agents/<nombre>.toml` (scope de proyecto), campos `name`, `description`
-  (obligatorios) + `sandbox_mode` y `mcp_servers` propios, que pueden ser *más* restrictivos que la
-  sesión padre — un rol que no lista `mcp_servers.engram` no tiene esas tools, sin importar qué tenga
-  registrado el padre. Probado en vivo: creado un rol `safe-reviewer` con `sandbox_mode = "read-only"`,
-  invocado con `spawn_agent` desde una sesión Codex real — el intento de bash contra
-  `engram mcp --tools=all` fue denegado por el sandbox del subagente (`attempt to write a readonly
-  database`, el mismo error que bloquea hasta `mem_search` bajo `read-only`, visto más arriba). Sí
-  funciona en la práctica, pese a que hay issues públicos de `openai/codex` (#14579, #15250) que
-  reportan que los agent roles de proyecto no son invocables — no reproducido acá, en v0.147.0 anduvo
-  bien.
-- **opencode**: `.opencode/agents/<nombre>.md` (scope de proyecto), frontmatter YAML con `description`,
-  `mode: subagent` (solo delegable, no se puede usar como agente de entrada de `opencode run --agent`)
-  y `permission:` con reglas por tool (`bash: deny`, `edit: deny`, etc.). Probado en vivo: creado
-  `safe-reviewer` con `bash: deny`, delegado desde una sesión `opencode run` normal pidiendo
-  explícitamente que intentara `engram mcp --tools=all` por bash — el subagente reportó que Bash ni
-  siquiera está en su lista de tools ("restricción estructural, no un bloqueo de permisos"), cerrando
-  exactamente el vector que dejó a opencode bypasear la restricción de Engram en v0.15/v0.16. Sí
-  conservó `read`/`grep`/`glob`/`webfetch`/`websearch` y el tool de `mem_search` vía MCP.
-- **Agy**: no tiene nada de esto — probado en vivo lanzando un subagente/worker paralelo (su forma de
-  delegar) pidiéndole leer un archivo fuera del proyecto: heredó exactamente la misma restricción de
-  sandbox que el padre (`Operation not permitted`, igual que el padre con `--sandbox`), ni más ni menos
-  estricto. No hay forma de hacer un subagente de Agy más restrictivo que la sesión que lo lanza.
-
-**Cuándo usar esto**: solo si en algún momento el rol delegado a Codex/opencode necesita, a su vez,
-dividir la tarea internamente y se quiere que esa sub-delegación no pueda tocar Engram ni ejecutar bash
-— hoy esta skill no depende de la auto-delegación interna de estos CLIs (cada rol del Paso 4 es un
-proceso top-level lanzado directo por Herdr), así que esto queda documentado como mecanismo disponible,
-no como parte del flujo de lanzamiento estándar.
+Historial completo del diseño anterior (wrapper, hallazgos de bypass por CLI, agentes custom
+`safe-reviewer` de Codex/opencode) en `CHANGELOG.md` v0.15-v0.28 — no se borró nada de eso, solo se
+dejó de usar. El wrapper (`~/.local/share/agent-selection/restricted-bin/engram`) y los agentes custom
+(`.codex/agents/safe-reviewer.toml`, `.opencode/agents/safe-reviewer.md`) quedan en el filesystem,
+dormidos, por si en algún momento se decide volver a registrar Engram en algún CLI.
 
 **Modelos fijos por CLI** (decisión del usuario, usar siempre estos — no improvisar otro modelo):
 
 | CLI | Modelo fijo | Invocación vía `pane run` | Rol por defecto |
 |---|---|---|---|
 | **Claude Code** | Sonnet 5 (default de la CLI, sin flag) | `claude` | Orquestador/líder — mejor detección de estado (`agent wait --status idle` confiable) |
-| **Codex** | gpt-5.6-luna · high | `codex -m gpt-5.6-luna -c model_reasoning_effort="high" -s workspace-write` | Segunda opinión/ejecutor independiente. `-s workspace-write` limita su sandbox a escribir solo dentro del proyecto — es también la barrera real contra que escriba en Engram (ver más abajo). Al primer arranque puede pedir confirmación de hooks (bloquea el pane hasta resolverlo con `herdr agent send <target> "3"`) |
+| **Codex** | gpt-5.6-luna · high | `codex -m gpt-5.6-luna -c model_reasoning_effort="high" -s workspace-write` | Segunda opinión/ejecutor independiente. `-s workspace-write` limita su sandbox a escribir solo dentro del proyecto — guardrail de seguridad general, no específico de Engram (que ya no está registrado, ver más abajo). Al primer arranque puede pedir confirmación de hooks (bloquea el pane hasta resolverlo con `herdr agent send <target> "3"`) |
 | **opencode** | DeepSeek V4 Flash Free | `opencode -m opencode/deepseek-v4-flash-free` | Ejecutor independiente. `agent wait --status idle` no es confiable — sondear con `agent read` en vez de esperar a ciegas |
 | **Agy** (Antigravity) | Gemini 3.6 Flash · High | `agy --model gemini-3.6-flash-high` | Minion/ejecutor mecánico en model tiering. TUI de alt-screen — leer con `--source visible`, no `recent`. Esperar a que termine de bootear antes del prompt real |
 

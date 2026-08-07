@@ -6,6 +6,11 @@ lanzado"). **Estado: todos probados/investigados/aplicados** (v0.20-v0.25, ver `
 archivo queda como registro de método y hallazgos, no como lista de pendientes activos. Si aparece un
 hallazgo nuevo, agregarlo acá con la misma metodología de prueba adversarial real, no especulación.
 
+**Nota (v0.29)**: todo el trabajo de este archivo defendía un acceso que después se decidió sacar de
+raíz — Engram ya no se registra como MCP en ningún CLI lanzado (ver `CHANGELOG.md` v0.29). Nada de lo
+de acá quedó invalidado (el wrapper y los hallazgos siguen siendo correctos), simplemente dejó de
+aplicar porque ya no hay una conexión de Engram que defender en Codex/opencode/Agy.
+
 ## Estado
 
 Sin pendientes activos. El último ítem (`safe-reviewer`, v0.26) se verificó en vivo el mismo día: no
