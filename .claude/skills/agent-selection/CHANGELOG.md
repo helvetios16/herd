@@ -78,3 +78,15 @@ falta repetirla entera).
   `SKILL.md`: el ejemplo de lanzamiento del Paso 4, la fila de la tabla "Modelos fijos por CLI" (se
   quitó también la justificación "mayor razonamiento para planificar", específica de Opus), y el modo
   sin Herdr (subagentes nativos). El resto de los CLIs (Codex, opencode, Agy) no cambia.
+- **v0.20** — resuelto el ítem crítico de `TODO.md`: el wrapper se movió de
+  `.claude/skills/agent-selection/restricted-bin/engram` (dentro del repo) a
+  `~/.local/share/agent-selection/restricted-bin/engram` (fuera del árbol de cualquier proyecto), para
+  que un CLI lanzado con permiso de escritura sobre el repo (ej. Codex con `-s workspace-write`) no
+  pueda editar ni borrar el wrapper antes de intentar el bypass. Actualizado el `PATH` inline del Paso 4
+  en `SKILL.md` a la ruta nueva, y agregado ahí mismo el fuente completo del wrapper como bloque de
+  código documentado — la única copia ejecutable vive ahora fuera del repo, sin esto se perdería el
+  fuente si se borra `~/.local/share/agent-selection/`. Creado también `README.md` en la raíz del repo
+  (primero del proyecto) con puntero a la skill y una nota del setup manual requerido fuera del repo.
+  Pendiente en `TODO.md`: repetir la prueba de bypass real con el wrapper ya en la ruta nueva — todavía
+  no se hizo (solo un smoke test manual: `--tools=all` bloqueado con exit 1, `--tools=mem_search`
+  pasa al binario real).

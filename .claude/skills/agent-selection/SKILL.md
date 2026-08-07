@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.19"
+  version: "0.20"
 ---
 
 ## Qué hace esta skill
@@ -217,14 +217,69 @@ herramientas individuales (`--tools=mem_search`, `--tools=mem_save,mem_search`, 
   directamente con otro perfil. Probado en vivo, encontró exactamente eso: opencode lo hizo y escribió
   una memoria real.
 - **Barrera más dura: wrapper restringido delante del binario real**
-  (`.claude/skills/agent-selection/restricted-bin/engram`) — solo deja pasar
-  `engram mcp --tools=mem_search [--project NAME]`, bloquea cualquier otra cosa (`--tools=all`, `save`,
-  `delete`, agregar `mem_save` a la lista, etc.) con exit 1, sin importar qué le pida el modelo.
-  Activarlo anteponiendo su directorio al `PATH` **dentro del mismo comando de `pane run`** que lanza el
-  CLI — no con `herdr tab create --env PATH=...`, que el shell interactivo termina pisando con sus
-  propios dotfiles (`.zshrc`/`brew shellenv` vuelven a poner `/opt/homebrew/bin` primero):
+  (`~/.local/share/agent-selection/restricted-bin/engram`) — vive **fuera del árbol de cualquier
+  proyecto** a propósito: si viviera dentro de un repo que el CLI lanzado puede escribir (ej. Codex con
+  `-s workspace-write`), ese mismo CLI podría editar o borrar el wrapper antes de intentar el bypass.
+  Solo deja pasar `engram mcp --tools=mem_search [--project NAME]`, bloquea cualquier otra cosa
+  (`--tools=all`, `save`, `delete`, agregar `mem_save` a la lista, etc.) con exit 1, sin importar qué le
+  pida el modelo. Activarlo anteponiendo su directorio al `PATH` **dentro del mismo comando de
+  `pane run`** que lanza el CLI — no con `herdr tab create --env PATH=...`, que el shell interactivo
+  termina pisando con sus propios dotfiles (`.zshrc`/`brew shellenv` vuelven a poner
+  `/opt/homebrew/bin` primero):
   ```bash
-  herdr pane run <pane_id> 'export PATH="<ruta-absoluta>/restricted-bin:$PATH"; <comando del CLI>'
+  herdr pane run <pane_id> 'export PATH="$HOME/.local/share/agent-selection/restricted-bin:$PATH"; <comando del CLI>'
+  ```
+  Fuente completa del wrapper (crear en `~/.local/share/agent-selection/restricted-bin/engram`,
+  `chmod +x` — no se distribuye con el repo a propósito, ver arriba):
+  ```bash
+  #!/usr/bin/env bash
+  # Restricted wrapper for the real `engram` binary.
+  # Only allows: engram mcp --tools=mem_search [--project NAME]
+  # Blocks everything else (save, delete, --tools=all, --tools=mem_save, raw stdio tricks, etc.)
+  # so a spawned CLI (Codex/opencode/Agy) can search shared memory but cannot write to it,
+  # even if it tries to shell out and construct the call by hand.
+  set -euo pipefail
+
+  REAL_ENGRAM="/opt/homebrew/bin/engram"
+
+  deny() {
+    echo "engram (restricted): blocked — only 'engram mcp --tools=mem_search [--project NAME]' is permitted here. Attempted: engram $*" >&2
+    exit 1
+  }
+
+  if [ "${1:-}" != "mcp" ]; then
+    deny "$@"
+  fi
+  shift
+
+  tools_ok=0
+  i=0
+  args=("$@")
+  n=${#args[@]}
+  while [ "$i" -lt "$n" ]; do
+    arg="${args[$i]}"
+    case "$arg" in
+      --tools=mem_search)
+        tools_ok=1
+        ;;
+      --project)
+        i=$((i + 1))
+        if [ "$i" -ge "$n" ]; then
+          deny mcp "$@"
+        fi
+        ;;
+      *)
+        deny mcp "$@"
+        ;;
+    esac
+    i=$((i + 1))
+  done
+
+  if [ "$tools_ok" -ne 1 ]; then
+    deny mcp "$@"
+  fi
+
+  exec "$REAL_ENGRAM" mcp "$@"
   ```
 - **Resultado real, probado con los tres CLIs**: **opencode** y **Agy** heredan el `PATH` del proceso
   padre para su herramienta de shell — el wrapper bloqueó ambos intentos de bypass (`--tools=all` y

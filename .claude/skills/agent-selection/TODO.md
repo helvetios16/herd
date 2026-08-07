@@ -6,15 +6,12 @@ lanzado"). Ninguno de estos está aplicado todavía — quedan acá para no perd
 
 ## Crítico
 
-- [ ] **El wrapper (`restricted-bin/engram`) vive *dentro* del proyecto que los mismos CLIs pueden
-      escribir.** Codex corre con `-s workspace-write` (puede escribir en todo `herd`, incluido
-      `.claude/skills/agent-selection/restricted-bin/`); opencode/Agy no tienen ese límite salvo lo que
-      decida su propio sandbox. Cualquiera de los tres, actuando como ejecutor de código (su rol
-      normal), podría editar o borrar el wrapper y anular la restricción antes de intentar el bypass —
-      nadie probó esto todavía. Mover el wrapper a una ruta fuera del árbol del proyecto (ej.
-      `~/.local/share/agent-selection/restricted-bin/`) y actualizar el `PATH` inline del Paso 4 en
-      consecuencia. Después, repetir la prueba de bypass para confirmar que ahora si el CLI puede
-      escribir en el proyecto pero no puede tocar el wrapper.
+- [x] **El wrapper vivía *dentro* del proyecto que los mismos CLIs pueden escribir** — movido a
+      `~/.local/share/agent-selection/restricted-bin/engram` (fuera del árbol de cualquier repo) y
+      actualizado el `PATH` inline del Paso 4 en `SKILL.md` en consecuencia.
+- [ ] **Repetir la prueba de bypass ya con el wrapper en la nueva ruta**, para confirmar que ahora sí
+      el CLI puede escribir en el proyecto (bajo `-s workspace-write` de Codex, por ejemplo) pero no
+      puede tocar ni borrar el wrapper — nadie lo probó todavía con la ruta nueva.
 
 ## Alto
 
