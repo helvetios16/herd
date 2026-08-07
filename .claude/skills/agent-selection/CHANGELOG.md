@@ -168,3 +168,16 @@ falta repetirla entera).
   `engram` — **ninguna de las dos herramientas aparece en su lista de tools**, ni de nivel superior ni
   entre las diferidas (`mem_search` sí, confirmando bloqueo selectivo). Cierra por completo el hallazgo
   de v0.24. `TODO.md` sin pendientes activos.
+- **v0.28** — investigados y probados en vivo los equivalentes de "agente custom" para Codex y opencode
+  (a pedido del usuario, siguiendo el patrón de `safe-reviewer` de Claude Code). Codex:
+  `.codex/agents/safe-reviewer.toml` con `sandbox_mode = "read-only"`, invocado con `spawn_agent` desde
+  una sesión Codex real — el intento de bash contra `engram mcp --tools=all` fue denegado por el
+  sandbox del subagente (`attempt to write a readonly database`). Funcionó pese a issues públicos de
+  `openai/codex` (#14579, #15250) que sugerían lo contrario — no reproducido en v0.147.0. opencode:
+  `.opencode/agents/safe-reviewer.md` con `permission: {bash: deny}`, delegado desde una sesión real —
+  Bash no aparece en su lista de tools ("restricción estructural"), cerrando el vector de bypass de
+  v0.15/v0.16. Agy: sin mecanismo equivalente — un subagente/worker paralelo hereda exactamente la
+  misma restricción de sandbox que el padre, confirmado con un intento de lectura fuera del proyecto
+  (`Operation not permitted`, igual que el padre). Documentado en `SKILL.md` como mecanismo disponible
+  para cuando estos CLIs necesiten auto-delegar de forma más segura — no cambia el patrón de
+  lanzamiento estándar del Paso 4, que sigue siendo un proceso top-level por rol.

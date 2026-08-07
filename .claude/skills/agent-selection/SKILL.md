@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.27"
+  version: "0.28"
 ---
 
 ## Qué hace esta skill
@@ -313,6 +313,43 @@ herramientas individuales (`--tools=mem_search`, `--tools=mem_save,mem_search`, 
   `Operation not permitted`, la misma clase de error). **`-s read-only` NO sirve** — es demasiado
   estricto: bloquea hasta `mem_search`, porque el propio binario `engram` necesita escritura incidental
   (migración de schema) para arrancar, sin importar qué tools se pidan.
+
+**Sub-agentes propios de Codex y opencode — verificados en vivo, más fuertes que el wrapper para su
+propia auto-delegación interna:**
+
+Codex y opencode tienen su propio mecanismo de "agente custom" con restricciones reales por rol —
+distinto de todo lo anterior, que trata al CLI como una caja negra desde afuera. Esto restringe lo que
+el CLI se delega *a sí mismo* cuando decide dividir una tarea internamente (`spawn_agent` en Codex,
+`task` en opencode) — no cambia cómo esta skill los lanza desde Herdr.
+
+- **Codex**: `.codex/agents/<nombre>.toml` (scope de proyecto), campos `name`, `description`
+  (obligatorios) + `sandbox_mode` y `mcp_servers` propios, que pueden ser *más* restrictivos que la
+  sesión padre — un rol que no lista `mcp_servers.engram` no tiene esas tools, sin importar qué tenga
+  registrado el padre. Probado en vivo: creado un rol `safe-reviewer` con `sandbox_mode = "read-only"`,
+  invocado con `spawn_agent` desde una sesión Codex real — el intento de bash contra
+  `engram mcp --tools=all` fue denegado por el sandbox del subagente (`attempt to write a readonly
+  database`, el mismo error que bloquea hasta `mem_search` bajo `read-only`, visto más arriba). Sí
+  funciona en la práctica, pese a que hay issues públicos de `openai/codex` (#14579, #15250) que
+  reportan que los agent roles de proyecto no son invocables — no reproducido acá, en v0.147.0 anduvo
+  bien.
+- **opencode**: `.opencode/agents/<nombre>.md` (scope de proyecto), frontmatter YAML con `description`,
+  `mode: subagent` (solo delegable, no se puede usar como agente de entrada de `opencode run --agent`)
+  y `permission:` con reglas por tool (`bash: deny`, `edit: deny`, etc.). Probado en vivo: creado
+  `safe-reviewer` con `bash: deny`, delegado desde una sesión `opencode run` normal pidiendo
+  explícitamente que intentara `engram mcp --tools=all` por bash — el subagente reportó que Bash ni
+  siquiera está en su lista de tools ("restricción estructural, no un bloqueo de permisos"), cerrando
+  exactamente el vector que dejó a opencode bypasear la restricción de Engram en v0.15/v0.16. Sí
+  conservó `read`/`grep`/`glob`/`webfetch`/`websearch` y el tool de `mem_search` vía MCP.
+- **Agy**: no tiene nada de esto — probado en vivo lanzando un subagente/worker paralelo (su forma de
+  delegar) pidiéndole leer un archivo fuera del proyecto: heredó exactamente la misma restricción de
+  sandbox que el padre (`Operation not permitted`, igual que el padre con `--sandbox`), ni más ni menos
+  estricto. No hay forma de hacer un subagente de Agy más restrictivo que la sesión que lo lanza.
+
+**Cuándo usar esto**: solo si en algún momento el rol delegado a Codex/opencode necesita, a su vez,
+dividir la tarea internamente y se quiere que esa sub-delegación no pueda tocar Engram ni ejecutar bash
+— hoy esta skill no depende de la auto-delegación interna de estos CLIs (cada rol del Paso 4 es un
+proceso top-level lanzado directo por Herdr), así que esto queda documentado como mecanismo disponible,
+no como parte del flujo de lanzamiento estándar.
 
 **Modelos fijos por CLI** (decisión del usuario, usar siempre estos — no improvisar otro modelo):
 
