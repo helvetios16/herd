@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.20"
+  version: "0.21"
 ---
 
 ## Qué hace esta skill

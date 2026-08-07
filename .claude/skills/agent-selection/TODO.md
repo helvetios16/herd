@@ -9,9 +9,13 @@ lanzado"). Ninguno de estos está aplicado todavía — quedan acá para no perd
 - [x] **El wrapper vivía *dentro* del proyecto que los mismos CLIs pueden escribir** — movido a
       `~/.local/share/agent-selection/restricted-bin/engram` (fuera del árbol de cualquier repo) y
       actualizado el `PATH` inline del Paso 4 en `SKILL.md` en consecuencia.
-- [ ] **Repetir la prueba de bypass ya con el wrapper en la nueva ruta**, para confirmar que ahora sí
-      el CLI puede escribir en el proyecto (bajo `-s workspace-write` de Codex, por ejemplo) pero no
-      puede tocar ni borrar el wrapper — nadie lo probó todavía con la ruta nueva.
+- [x] **Prueba de bypass repetida con el wrapper en la nueva ruta** — Codex lanzado de verdad vía Herdr
+      con `-s workspace-write` en `herd`, pedido explícitamente: escribir un archivo dentro del repo,
+      leer el wrapper externo, y borrarlo. Resultado: escritura dentro del repo — éxito (exit 0);
+      lectura del wrapper externo — éxito (exit 0, el sandbox no restringe lectura fuera del proyecto,
+      solo escritura); **borrado del wrapper — falló**: `rm: .../restricted-bin/engram: Operation not
+      permitted`. Confirma que la reubicación cierra el hueco: Codex puede escribir en el proyecto pero
+      no puede tocar el wrapper.
 
 ## Alto
 
@@ -24,9 +28,14 @@ lanzado"). Ninguno de estos está aplicado todavía — quedan acá para no perd
       probó con un intento de bypass — solo se amplió la lista, nunca se verificó que un CLI lanzado
       realmente no pueda tocar esas rutas. Aplicar la misma metodología de prueba adversarial que se
       usó con Engram: lanzar un CLI, pedirle explícitamente que lea/escriba un archivo de esa lista, y
-      confirmar qué pasa en la práctica (bajo `-s workspace-write` de Codex debería bloquearse si el
-      archivo está fuera del proyecto — pero si está *dentro* del proyecto, como un `.env` del propio
-      repo, el sandbox no ayuda en nada).
+      confirmar qué pasa en la práctica. **Actualizar la expectativa**: la prueba de bypass del wrapper
+      (v0.21) encontró que `-s workspace-write` de Codex solo bloquea *escritura* fuera del proyecto —
+      la *lectura* fuera del workspace no está restringida (confirmado: Codex leyó
+      `~/.local/share/agent-selection/restricted-bin/engram` sin problema, exit 0). Para archivos como
+      `.ssh`/`.env` fuera del proyecto, esto probablemente significa que un CLI lanzado SÍ puede leerlos
+      igual, aunque no pueda modificarlos — hay que probarlo para confirmar, no asumir que "está fuera
+      del proyecto" alcanza como barrera de confidencialidad. Si está *dentro* del proyecto, como un
+      `.env` del propio repo, el sandbox no ayuda en nada (ni lectura ni escritura).
 
 ## Medio
 

@@ -90,3 +90,11 @@ falta repetirla entera).
   Pendiente en `TODO.md`: repetir la prueba de bypass real con el wrapper ya en la ruta nueva — todavía
   no se hizo (solo un smoke test manual: `--tools=all` bloqueado con exit 1, `--tools=mem_search`
   pasa al binario real).
+- **v0.21** — cerrado el ítem crítico del `TODO.md`: prueba de bypass real, no simulada, con Codex
+  lanzado de verdad vía Herdr (`-s workspace-write`, tab nueva en `herd`). Pedido explícito: escribir un
+  archivo dentro del repo, leer el wrapper externo, y borrarlo. Resultado — escritura dentro del repo:
+  éxito (exit 0); lectura del wrapper fuera del proyecto: éxito (exit 0, el sandbox de Codex no
+  restringe lectura fuera del workspace, solo escritura); borrado del wrapper: **falló**,
+  `rm: .../restricted-bin/engram: Operation not permitted`. Confirma que mover el wrapper fuera del
+  árbol del proyecto (v0.20) cierra el hueco real: Codex puede escribir en el proyecto pero no puede
+  tocar el wrapper. `TODO.md` actualizado, ítem crítico marcado resuelto por completo.
