@@ -146,3 +146,19 @@ falta repetirla entera).
   grande y variable por proyecto para un wrapper confiable; mejor invertir en que se cumpla el
   guardrail de confirmación humana ya existente. `TODO.md` reescrito como registro de método/hallazgos,
   ya no como lista de pendientes activos.
+- **v0.26** — investigada la comparación con gentle-ai a fondo (a pedido del usuario) y encontrado el
+  mecanismo real que faltaba para cerrar el hueco de v0.24 (subagente nativo con `mem_save` sin
+  restricción). Confirmado que gentle-ai inyecta su deny-list en el `permissions.deny` nativo de
+  `settings.json` de Claude Code — pero eso **no cubre subagentes del Task tool**, limitación real y
+  documentada del propio Claude Code (`anthropics/claude-code#25000` "Sub-agents bypass permission deny
+  rules — security risk", `#27661`, `#14714`, `#22665`): no heredan `permissions.deny` ni
+  `PreToolUse` hooks del padre. gentle-ai tiene exactamente nuestro mismo problema, no lo resuelve.
+  La única restricción técnica real por subagente es su propio `tools`/`disallowedTools`
+  (confirmado en `code.claude.com/docs/en/sub-agents`). Creado `.claude/agents/safe-reviewer.md` —
+  agente custom con `disallowedTools` bloqueando Bash/PowerShell/Edit/Write/NotebookEdit y los tools de
+  escritura de Engram, para usar en jueces/lentes/reviewers de subagente nativo en vez de
+  `general-purpose`. Excluye `Bash` a propósito (no solo los tools MCP) porque un subagente con Bash
+  podría invocar el binario `engram` real directo, el mismo vector que usaban los CLIs externos.
+  **No se pudo verificar en vivo** — Claude Code no detecta un `.claude/agents/` nuevo sin reiniciar la
+  sesión; queda como único pendiente activo en `TODO.md` para la próxima sesión. Memoria #655
+  actualizada con la comparación corregida.

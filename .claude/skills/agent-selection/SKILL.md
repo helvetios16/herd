@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.25"
+  version: "0.26"
 ---
 
 ## Qué hace esta skill
@@ -343,6 +343,22 @@ patrones del Paso 3 que no dependan de cruzar proveedores (1, 2, 3, 5 sirven igu
 nativos). El patrón 4 (model tiering) **no tiene minion barato sin Herdr** — no queda "sin resolver":
 degrada explícitamente a Delegated direct (Paso 1, ruta 2) con subagente nativo, sin el ahorro de
 costo pero sin bloquear la tarea.
+
+**Para cualquier rol de solo lectura/revisión con subagente nativo (jueces, lentes 4R, minion de model
+tiering), usar el agente custom `safe-reviewer`** (`.claude/agents/safe-reviewer.md`) en vez de
+`general-purpose` — tiene `disallowedTools` bloqueando `Bash`/`PowerShell`/`Edit`/`Write`/
+`NotebookEdit` y los tools de escritura de Engram (`mem_save`, `mem_update`, `mem_pin`, etc.), a
+diferencia del guardrail de "`mem_save` reservado al orquestador" de más abajo, que es solo texto. Este
+sí es técnico: un subagente nativo de Claude Code (Task tool) no hereda `permissions.deny` del
+`settings.json` del padre (limitación conocida y documentada de Claude Code —
+`anthropics/claude-code#25000`, `#27661`), así que la única forma real de restringirlo es el campo
+`disallowedTools`/`tools` de su propia definición de agente, no un ajuste de `settings.json`. Nota:
+`safe-reviewer` excluye `Bash` a propósito, no solo los tools MCP — un subagente con Bash disponible
+podría invocar el binario real de `engram` directo, igual que hacían los CLIs externos antes del
+wrapper. Si un rol de revisión realmente necesita correr comandos (tests, linters), no usar
+`safe-reviewer`, usar `general-purpose` y aplicar el guardrail de texto como mitigación parcial —
+**pendiente de verificar en vivo que `disallowedTools` bloquea de verdad lo que dice bloquear** (ver
+`TODO.md`).
 
 ## Paso 5 — output esperado
 
