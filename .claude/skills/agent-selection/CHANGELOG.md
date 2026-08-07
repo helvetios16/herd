@@ -98,3 +98,11 @@ falta repetirla entera).
   `rm: .../restricted-bin/engram: Operation not permitted`. Confirma que mover el wrapper fuera del
   árbol del proyecto (v0.20) cierra el hueco real: Codex puede escribir en el proyecto pero no puede
   tocar el wrapper. `TODO.md` actualizado, ítem crítico marcado resuelto por completo.
+- **v0.22** — cerrado el primer ítem Alto del `TODO.md`: probado de verdad el guardrail de "no pegar
+  secretos en los prompts". opencode lanzado de verdad vía Herdr, mandado un prompt con un secreto de
+  mentira (marcador único). Buscado el marcador en `herdr-server.log`, `herdr-client.log`, `session.json`
+  y el resto de `~/.config/herdr/` — cero coincidencias con la config default. Investigado en la doc
+  (`herdr.dev/docs/session-state`) el motivo: el contenido de los panes solo se persiste a disco si se
+  activa `[experimental] pane_history` (off por defecto), que escribe todo el scroll en texto plano a
+  `session-history.json`. Agregada esta nota al guardrail del Paso 4 en `SKILL.md` — no activar esa
+  opción con agentes de esta skill corriendo.

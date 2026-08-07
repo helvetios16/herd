@@ -19,11 +19,18 @@ lanzado"). Ninguno de estos está aplicado todavía — quedan acá para no perd
 
 ## Alto
 
-- [ ] **El guardrail de "no pegar secretos en los prompts" (Paso 4) nunca se probó de verdad.** Es
-      texto, no algo verificado — a diferencia de la barrera de Engram, que sí se sometió a un intento
-      de bypass real. Diseñar una prueba: mandar un prompt con un secreto de mentira a un CLI y
-      confirmar que no queda expuesto en ningún log/output persistente de Herdr (`session-history.json`
-      si `pane_history` está activo, por ejemplo).
+- [x] **El guardrail de "no pegar secretos en los prompts" (Paso 4), probado de verdad.** Lanzado
+      opencode de verdad vía Herdr, mandado un prompt con un secreto de mentira (marcador único
+      `sk-FAKESECRET-9f8e7d6c5b4a3210-TESTMARKER-ZZ`). Buscado el marcador en `herdr-server.log`,
+      `herdr-client.log`, `session.json` y el resto de `~/.config/herdr/` (recursivo) — **cero
+      coincidencias**, no queda expuesto en ningún archivo persistente de Herdr con la config default.
+      Motivo confirmado en la doc (`herdr.dev/docs/session-state`): el contenido de los panes (lo que
+      incluiría cualquier secreto pegado en un prompt) solo se persiste a disco si se activa
+      `[experimental] pane_history` (**off por defecto**, no está seteado en `config.toml`), que escribe
+      todo el scroll de los panes en texto plano a `session-history.json`. **Riesgo latente para el
+      futuro**: si algún día se activa `pane_history` (para debug, por ejemplo) sin recordar esta nota,
+      cualquier secreto pegado en un prompt a un CLI lanzado queda en texto plano en disco — no hay
+      guardrail técnico contra eso, es responsabilidad de quien active la opción.
 - [ ] **La lista de riesgo del Paso 2** (`.ssh`, `.env`, CI/CD, infra, migraciones, etc.) tampoco se
       probó con un intento de bypass — solo se amplió la lista, nunca se verificó que un CLI lanzado
       realmente no pueda tocar esas rutas. Aplicar la misma metodología de prueba adversarial que se

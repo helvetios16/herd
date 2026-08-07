@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.21"
+  version: "0.22"
 ---
 
 ## Qué hace esta skill
@@ -194,7 +194,11 @@ el prompt a ciegas justo después de `pane run`.
 - **No pegar secretos ni credenciales en los prompts** que se mandan a los CLIs — si la tarea necesita
   referenciar un archivo sensible (de la lista de riesgo del Paso 2), describirlo por ruta/nombre, no
   copiar su contenido. Mandar el mismo contexto a 2-4 CLIs distintos (blind dual-judge, lentes 4R)
-  multiplica la superficie de exposición si el prompt incluye datos sensibles.
+  multiplica la superficie de exposición si el prompt incluye datos sensibles. Probado en vivo con un
+  secreto de mentira: con la config default de Herdr no queda expuesto en ningún archivo persistente
+  (`herdr-server.log`, `herdr-client.log`, `session.json`) — pero si alguna vez se activa
+  `[experimental] pane_history` (off por defecto), el contenido de los panes, secretos incluidos, queda
+  en texto plano en `session-history.json`. No activar esa opción con agentes de esta skill corriendo.
 - **Una corrección que toca algo de la lista de riesgo no se aplica solo con el visto bueno del
   orquestador** (aunque venga de blind dual-judge o de cualquier patrón de verificación) — confirmar
   con el usuario antes de aplicarla. Verificación adversarial reduce el riesgo de un error lógico, pero
