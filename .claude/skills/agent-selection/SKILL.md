@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.26"
+  version: "0.27"
 ---
 
 ## Qué hace esta skill
@@ -356,9 +356,12 @@ sí es técnico: un subagente nativo de Claude Code (Task tool) no hereda `permi
 `safe-reviewer` excluye `Bash` a propósito, no solo los tools MCP — un subagente con Bash disponible
 podría invocar el binario real de `engram` directo, igual que hacían los CLIs externos antes del
 wrapper. Si un rol de revisión realmente necesita correr comandos (tests, linters), no usar
-`safe-reviewer`, usar `general-purpose` y aplicar el guardrail de texto como mitigación parcial —
-**pendiente de verificar en vivo que `disallowedTools` bloquea de verdad lo que dice bloquear** (ver
-`TODO.md`).
+`safe-reviewer`, usar `general-purpose` y aplicar el guardrail de texto como mitigación parcial.
+Verificado en vivo (ver `TODO.md`): `mem_save` y `Bash` no aparecen en la lista de tools de un
+subagente `safe-reviewer`, ni siquiera entre las diferidas — `mem_search` sí, confirmando que el
+bloqueo es selectivo. **Alcance**: esto solo cubre subagentes nativos de Claude Code (Task tool); los
+CLIs externos vía Herdr no leen `.claude/agents/`, siguen protegidos por el wrapper/sandbox de más
+abajo, son superficies distintas.
 
 ## Paso 5 — output esperado
 

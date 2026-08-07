@@ -162,3 +162,9 @@ falta repetirla entera).
   **No se pudo verificar en vivo** — Claude Code no detecta un `.claude/agents/` nuevo sin reiniciar la
   sesión; queda como único pendiente activo en `TODO.md` para la próxima sesión. Memoria #655
   actualizada con la comparación corregida.
+- **v0.27** — verificado en vivo, mismo día: `safe-reviewer` sí se detectó sin reiniciar la sesión
+  (el aviso de la doc sobre reinicio no aplicó acá). Lanzado un subagente real con
+  `subagent_type: safe-reviewer`, pedido explícito de llamar `mem_save` y usar Bash para invocar
+  `engram` — **ninguna de las dos herramientas aparece en su lista de tools**, ni de nivel superior ni
+  entre las diferidas (`mem_search` sí, confirmando bloqueo selectivo). Cierra por completo el hallazgo
+  de v0.24. `TODO.md` sin pendientes activos.

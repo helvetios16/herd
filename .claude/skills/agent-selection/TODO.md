@@ -6,22 +6,22 @@ lanzado"). **Estado: todos probados/investigados/aplicados** (v0.20-v0.25, ver `
 archivo queda como registro de método y hallazgos, no como lista de pendientes activos. Si aparece un
 hallazgo nuevo, agregarlo acá con la misma metodología de prueba adversarial real, no especulación.
 
-## Pendiente activo (único, v0.26)
+## Estado
 
-- [ ] **Verificar en vivo que `.claude/agents/safe-reviewer.md` (`disallowedTools`) bloquea de verdad
-      `mem_save` y compañía para un subagente nativo.** Se armó como respuesta directa al hallazgo de
-      v0.24 (subagente nativo con escritura sin restricción en Engram) y a una limitación real y
-      documentada de Claude Code: los subagentes del Task tool no heredan `permissions.deny` del
-      `settings.json` del padre (`anthropics/claude-code#25000`, `#27661`) — la única restricción
-      técnica real por subagente es su propio `tools`/`disallowedTools`, confirmado en la doc oficial
-      (`code.claude.com/docs/en/sub-agents`, sección "Supported frontmatter fields": *"The subagent
-      can't edit files, write files, or use any MCP tools"* cuando `tools` no las incluye). No se pudo
-      probar en esta sesión porque Claude Code no detecta un `.claude/agents/` recién creado hasta
-      reiniciar. **Cómo probarlo la próxima sesión**: lanzar un subagente con
-      `subagent_type: safe-reviewer` pidiéndole que intente llamar `mem_save` y ejecutar `engram` por
-      Bash (ambos deberían fallar por no tener el tool/por no tener Bash disponible) — misma
-      metodología que el resto de este archivo, con resultado exacto documentado acá y en
-      `CHANGELOG.md`.
+Sin pendientes activos. El último ítem (`safe-reviewer`, v0.26) se verificó en vivo el mismo día: no
+hizo falta reiniciar la sesión después de todo — el nuevo `.claude/agents/` se detectó solo.
+
+- [x] **Verificado en vivo: `.claude/agents/safe-reviewer.md` (`disallowedTools`) bloquea de verdad
+      `mem_save` y `Bash`.** Lanzado un subagente real con `subagent_type: safe-reviewer`, pedido
+      explícito de (a) buscar y llamar cualquier tool `mem_save*` y (b) usar Bash para invocar el
+      binario `engram` real. Resultado: **ninguna de las dos herramientas aparece en su lista de tools
+      disponibles** — ni de nivel superior ni entre las diferidas (`mem_search` sí sigue disponible,
+      confirmando que el bloqueo es selectivo, no total). Cierra el hallazgo de v0.24: un subagente
+      nativo lanzado como `safe-reviewer` ya no tiene el problema que sí tiene `general-purpose`.
+      **Alcance importante**: esto solo protege la vía de subagentes nativos de Claude Code (Task tool)
+      — no aplica a los CLIs externos (Codex/opencode/Agy) lanzados vía Herdr, que no tienen ningún
+      concepto de "agente custom de Claude Code" ni leen `.claude/agents/`; esa vía sigue asegurada por
+      el wrapper/sandbox de v0.20-v0.25, son dos superficies distintas.
 
 ## Crítico
 
