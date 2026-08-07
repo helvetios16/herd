@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.22"
+  version: "0.23"
 ---
 
 ## Qué hace esta skill
@@ -111,6 +111,13 @@ más que ahorrar en modelo.
   manifiestos de Kubernetes, `Dockerfile`/`docker-compose` de producción); migraciones de base de
   datos; cualquier archivo de configuración de producción/deploy; o auth/pagos/borrado masivo de
   datos. Fuera de esa lista, tratar la pregunta 2 como "no" salvo justificación explícita.
+- **Esta lista es puro criterio de prompt, sin respaldo técnico — probado en vivo con Codex
+  (`-s workspace-write`).** El sandbox del CLI protege *integridad* (no puede escribir fuera del
+  proyecto: `operation not permitted` confirmado contra un archivo señuelo en `~/.ssh/`) pero **no
+  confidencialidad** (leer un archivo fuera del proyecto — el mismo señuelo — dio éxito, código 0). Y
+  dentro del proyecto (ej. un `.env` del propio repo) el sandbox no restringe nada, ni lectura ni
+  escritura. Esta lista solo funciona si el CLI lanzado respeta el prompt — no hay ningún mecanismo que
+  se lo impida técnicamente si decide ignorarlo.
 
 Si ninguna da sí → **Delegated direct alcanza** (ruta 2 del Paso 1), no hace falta patrón multi-agente.
 
