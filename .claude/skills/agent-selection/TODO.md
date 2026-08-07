@@ -2,7 +2,9 @@
 
 Pendientes identificados durante la ronda de pruebas reales de la barrera de escritura a Engram (ver
 `CHANGELOG.md` v0.15-v0.17 y la nota de Phyume "Herdr", sección "Restringir qué puede escribir un CLI
-lanzado"). Ninguno de estos está aplicado todavía — quedan acá para no perderlos.
+lanzado"). **Estado: todos probados/investigados/aplicados** (v0.20-v0.25, ver `CHANGELOG.md`) — este
+archivo queda como registro de método y hallazgos, no como lista de pendientes activos. Si aparece un
+hallazgo nuevo, agregarlo acá con la misma metodología de prueba adversarial real, no especulación.
 
 ## Crítico
 
@@ -54,24 +56,53 @@ lanzado"). Ninguno de estos está aplicado todavía — quedan acá para no perd
       (v0.147.0): `echo ... > /tmp/herd-sandbox-tmp-test.txt` escribió, leyó y borró sin error, código 0.
       No afecta a Engram (su DB no vive ahí) pero sigue siendo una vía abierta si en algún momento se
       necesita bloquear *cualquier* escritura fuera del proyecto, no solo la de un binario puntual.
-- [ ] **opencode y Agy no tienen un sandbox nativo equivalente al de Codex** (`-s workspace-write`) —
-      dependen enteramente del wrapper por `PATH`, que a su vez depende de que su herramienta de shell
-      siga heredando el entorno del proceso padre. Si en una versión futura de cualquiera de los dos
-      cambia ese comportamiento (como ya pasó con Codex, que empezó a reconstruir su propio entorno),
-      la barrera se rompe en silencio sin que nada lo avise. Investigar si opencode/Agy tienen su
-      propio mecanismo de sandbox/permisos nativo (no genérico de shell) que sea más robusto que el
-      wrapper por `PATH`.
-- [ ] **El wrapper solo cubre el binario `engram`.** Los guardrails de seguridad del Paso 4 hablan en
-      general de "nunca comandos destructivos/de producción sin supervisión" — pero esa cobertura
-      amplia sigue siendo texto/instrucción, no un mecanismo técnico como el que se armó para Engram.
-      Evaluar si vale la pena generalizar el patrón del wrapper a otros binarios sensibles (`git push`,
-      scripts de deploy del proyecto, etc.) o si conviene un enfoque distinto para esos casos.
+- [x] **Investigado y probado: opencode NO tiene sandbox nativo; Agy SÍ, y es más fuerte que el de
+      Codex.**
+  - **opencode**: confirmado que no existe. Hubo un PR experimental
+    (`anomalyco/opencode#21538`, "macOS bash command sandboxing", opt-in vía `experimental.sandbox`)
+    pero **nunca se mergeó** — cerrado en mayo 2026 por inactividad. Sigue dependiendo enteramente del
+    wrapper por `PATH` y de las reglas de `Permissions` (allow/deny/ask), ambas barreras blandas.
+  - **Agy**: sí tiene (`--sandbox`), y **la skill no lo está usando** (`agy --model
+    gemini-3.6-flash-high`, sin `--sandbox`). Probado en vivo, resultado más fuerte que Codex:
+    en macOS usa `sandbox-exec` (mismo mecanismo de base que Codex) pero bloquea **lectura Y escritura**
+    fuera del proyecto — `cat` de un señuelo fuera del proyecto dio `Operation not permitted` (Codex sí
+    dejaba leer). Lectura/escritura dentro del proyecto: ambas éxito, igual que Codex.
+  - **Gotcha real al activar `--sandbox` en Agy**: introduce un prompt de confirmación interactivo antes
+    de cada comando de shell (aunque esté sandboxeado) — rompe el patrón de lanzamiento autónomo en
+    background que usa el Paso 4 (`pane run` + esperar), salvo que se responda cada prompt o se
+    seleccione "always allow" para el patrón de comando exacto. **Nunca combinar con
+    `--dangerously-skip-permissions`** — vulnerabilidad documentada
+    (`google-antigravity/antigravity-cli#36`): esa combinación deja que el modelo se auto-apruebe saltar
+    el sandbox por completo, anulando la protección. No se cambió el comando de lanzamiento default de
+    Agy en `SKILL.md` por este trade-off — documentado como opción para cuando se necesite aislamiento
+    más fuerte y se pueda tolerar la fricción de las confirmaciones.
+- [x] **Evaluado: no generalizar el patrón del wrapper a otros binarios (recomendación, no una
+      prueba).** El wrapper de Engram funciona porque el caso es angosto y estable: un solo binario, una
+      sola operación legítima a permitir (`mem_search`), superficie de flags chica y predecible — se
+      pudo enumerar y bloquear todo lo demás con confianza. `git push`, scripts de deploy, etc. no
+      comparten esas propiedades: superficie de flags mucho más grande, variación por proyecto, y un
+      wrapper mal armado da falsa sensación de seguridad (peor que no tener nada, porque hace parecer
+      resuelto algo que no lo está — confirmado en esta misma ronda que hasta el wrapper de Engram, bien
+      angosto, dependía de *dónde* vivía el archivo, no solo de su lógica interna). Mejor invertir en que
+      el guardrail de "nunca comandos destructivos sin supervisión" (Paso 4) se cumpla en la práctica —
+      confirmación humana explícita antes de lanzar cualquier agente con esa capacidad — que en wrappers
+      puntuales por binario. Si en el futuro aparece un caso concreto y angosto (no especulativo) que
+      lo amerite, evaluarlo con la misma metodología de prueba adversarial usada en este TODO.
 
 ## Bajo / investigar
 
-- [ ] **Verificar si gentle-ai probó su propio "Permissions" (deny-list) contra un bypass real** — se
-      especuló en Phyume que es la misma clase de barrera blanda que la de acá, pero nunca se confirmó
-      revisando su código/tests, solo su documentación pública.
+- [x] **Investigado (sin poder confirmar del todo): no se encontró evidencia de que gentle-ai haya
+      probado su "Permissions" (deny-list) contra un bypass real.** Revisada la documentación pública
+      (`docs/agents.md`, `docs/components.md`) y el directorio `e2e/` del repo — ningún archivo ni
+      mención relacionada con "bypass", "adversarial", "security test" o similar; el `e2e/` solo tiene
+      Dockerfiles de smoke-test por distro (`Dockerfile.arch`, `.fedora`, `.ubuntu`,
+      `Dockerfile.claude-network-none`) y un script `docker-test.sh`/`e2e_test.sh`, no pruebas de
+      bypass de permisos. **Limitación de esta investigación**: no se pudo hacer búsqueda de código de
+      GitHub (`*_test.go` con "permission") por requerir login — no se descartó al 100% que exista un
+      test unitario de Go cubriendo esto en `internal/`, solo que no aparece en la documentación ni en
+      `e2e/`. Su deny-list default sí es más específica que la lista de riesgo de esta skill (incluye
+      `~/Library/Keychains/*`, `.p12`, `.pfx`) — vale la pena tomarla como referencia para ampliar la
+      lista de riesgo del Paso 2 en algún momento, aunque no es parte de este TODO de seguridad.
 - [x] **Confirmado: un subagente nativo de Claude Code (Task tool) tiene escritura sin ninguna
       restricción en Engram.** Probado en vivo: un subagente `general-purpose` lanzado con el Task tool
       (no vía Herdr) pudo (a) llamar `mcp__plugin_engram_engram__mem_save` directo y guardar una memoria

@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.24"
+  version: "0.25"
 ---
 
 ## Qué hace esta skill
@@ -322,6 +322,15 @@ herramientas individuales (`--tools=mem_search`, `--tools=mem_save,mem_search`, 
 | **Codex** | gpt-5.6-luna · high | `codex -m gpt-5.6-luna -c model_reasoning_effort="high" -s workspace-write` | Segunda opinión/ejecutor independiente. `-s workspace-write` limita su sandbox a escribir solo dentro del proyecto — es también la barrera real contra que escriba en Engram (ver más abajo). Al primer arranque puede pedir confirmación de hooks (bloquea el pane hasta resolverlo con `herdr agent send <target> "3"`) |
 | **opencode** | DeepSeek V4 Flash Free | `opencode -m opencode/deepseek-v4-flash-free` | Ejecutor independiente. `agent wait --status idle` no es confiable — sondear con `agent read` en vez de esperar a ciegas |
 | **Agy** (Antigravity) | Gemini 3.6 Flash · High | `agy --model gemini-3.6-flash-high` | Minion/ejecutor mecánico en model tiering. TUI de alt-screen — leer con `--source visible`, no `recent`. Esperar a que termine de bootear antes del prompt real |
+
+Nota Agy — sandbox nativo disponible pero no usado por default: agregar `--sandbox` da un aislamiento
+más fuerte que el `-s workspace-write` de Codex (en macOS usa `sandbox-exec` y bloquea *lectura y
+escritura* fuera del proyecto, no solo escritura — probado en vivo). No es el comando default porque
+introduce un prompt de confirmación interactivo antes de cada comando de shell, que rompe el patrón de
+lanzamiento autónomo en background de este Paso 4. Usarlo cuando el aislamiento importe más que la
+fricción de aprobar cada comando — y **nunca combinarlo con `--dangerously-skip-permissions`**:
+vulnerabilidad documentada (`google-antigravity/antigravity-cli#36`) que deja que el modelo se
+auto-apruebe saltar el sandbox por completo.
 
 Nota Codex: `~/.codex/config.toml` trae `model_reasoning_effort = "xhigh"` como default global — distinto
 del `high` fijado acá. La invocación pasa **ambos** flags explícitos, `-m gpt-5.6-luna` y

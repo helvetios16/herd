@@ -127,3 +127,22 @@ falta repetirla entera).
   subagentes de Task tool, no solo a CLIs vía Herdr — deben reportar hallazgos de vuelta, no guardar
   memoria por su cuenta. Quedan pendientes sin tocar: investigar sandbox nativo de opencode/Agy,
   evaluar generalizar el wrapper a otros binarios sensibles, y verificar el deny-list de gentle-ai.
+- **v0.25** — cierra `TODO.md` por completo (todos los ítems Crítico/Alto/Medio/Bajo probados,
+  investigados, o resueltos con recomendación). Tres hallazgos de esta ronda:
+  1. **opencode no tiene sandbox nativo** — hubo un PR experimental (`anomalyco/opencode#21538`,
+     opt-in vía `experimental.sandbox`) pero nunca se mergeó, cerrado en mayo 2026. Sigue dependiendo
+     del wrapper por `PATH` y de `Permissions` (allow/deny/ask), ambas barreras blandas.
+  2. **Agy sí tiene sandbox nativo (`--sandbox`) y es más fuerte que el de Codex** — probado en vivo:
+     en macOS usa `sandbox-exec` y bloquea *lectura y escritura* fuera del proyecto (Codex solo
+     bloqueaba escritura). La skill no lo usa por default porque introduce confirmación interactiva por
+     comando, rompiendo el lanzamiento autónomo en background; documentado en `SKILL.md` como opción,
+     con la advertencia de nunca combinarlo con `--dangerously-skip-permissions`
+     (vulnerabilidad documentada, `google-antigravity/antigravity-cli#36`).
+  3. **gentle-ai**: sin evidencia pública de que haya probado su deny-list contra un bypass real (docs
+     y `e2e/` revisados, sin cobertura al respecto) — investigación con límite conocido (no se pudo
+     buscar código de GitHub sin login).
+  Además, evaluado (no probado, es criterio de diseño) que **no conviene generalizar el patrón del
+  wrapper** a otros binarios sensibles (`git push`, deploys) — la superficie de flags es demasiado
+  grande y variable por proyecto para un wrapper confiable; mejor invertir en que se cumpla el
+  guardrail de confirmación humana ya existente. `TODO.md` reescrito como registro de método/hallazgos,
+  ya no como lista de pendientes activos.
