@@ -117,3 +117,13 @@ falta repetirla entera).
   enteramente de que el CLI respete el prompt. Agregada esta nota al criterio de la lista de riesgo en
   `SKILL.md`. Señuelos limpiados después de la prueba. Con esto quedan cerrados todos los ítems Crítico y
   Alto de `TODO.md` — solo quedan pendientes Medio/Bajo, no bloqueantes.
+- **v0.24** — avance en los ítems Medio/Bajo. Reconfirmado con Codex real (v0.147.0) que `/tmp` sigue
+  escribible bajo `-s workspace-write`. **Hallazgo importante**: un subagente nativo de Claude Code (Task
+  tool, no vía Herdr) tiene escritura completa y sin restricción en Engram — probado en vivo, pudo llamar
+  `mem_save` por MCP directo (memoria limpiada después con `engram delete --hard`) y ejecutar el binario
+  `engram` crudo por Bash sin ningún bloqueo. No hay wrapper ni sandbox equivalente al de los CLIs
+  externos para subagentes nativos, porque corren con el mismo nivel de confianza que el orquestador.
+  Aclarado en `SKILL.md`: el principio "`mem_save` reservado al orquestador" aplica también a
+  subagentes de Task tool, no solo a CLIs vía Herdr — deben reportar hallazgos de vuelta, no guardar
+  memoria por su cuenta. Quedan pendientes sin tocar: investigar sandbox nativo de opencode/Agy,
+  evaluar generalizar el wrapper a otros binarios sensibles, y verificar el deny-list de gentle-ai.

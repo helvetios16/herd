@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.23"
+  version: "0.24"
 ---
 
 ## Qué hace esta skill
@@ -222,7 +222,13 @@ herramientas individuales (`--tools=mem_search`, `--tools=mem_save,mem_search`, 
 - **Ejecutores/jueces lanzados vía Herdr**: registrar Engram con `--tools=mem_search` únicamente — les
   sirve para no redescubrir contexto ya guardado, sin que cada uno escriba memoria por su cuenta.
 - **`mem_save` queda reservado al orquestador** (esta sesión) — mismo principio que el resto de esta
-  sección: un solo punto de control para lo que se persiste, después de filtrar/sintetizar.
+  sección: un solo punto de control para lo que se persiste, después de filtrar/sintetizar. **Esto
+  también aplica a subagentes nativos lanzados con el Task tool, no solo a CLIs externos vía Herdr** —
+  probado en vivo: un subagente nativo tiene acceso completo y sin restricción a `mem_save` (vía MCP) y
+  al binario `engram` crudo (vía Bash), porque corre con el mismo nivel de confianza que la sesión
+  orquestadora — no hay wrapper por `PATH` ni sandbox que lo limite, a diferencia de Codex/opencode/Agy.
+  Un subagente de Task tool debe reportar sus hallazgos de vuelta al orquestador, no guardar memoria por
+  su cuenta.
 - **La restricción `--tools=` sola es una barrera blanda** — solo limita lo que el CLI ve a través de
   *esa conexión MCP registrada*; un CLI con acceso a bash puede saltearla invocando el binario `engram`
   directamente con otro perfil. Probado en vivo, encontró exactamente eso: opencode lo hizo y escribió

@@ -50,9 +50,10 @@ lanzado"). Ninguno de estos está aplicado todavía — quedan acá para no perd
 
 ## Medio
 
-- [ ] **`/tmp` queda escribible bajo `-s workspace-write`** (confirmado en la prueba). No afecta a
-      Engram (su DB no vive ahí) pero es una vía abierta si en algún momento se necesita bloquear
-      *cualquier* escritura fuera del proyecto, no solo la de un binario puntual.
+- [x] **`/tmp` queda escribible bajo `-s workspace-write`** — reconfirmado con Codex real vía Herdr
+      (v0.147.0): `echo ... > /tmp/herd-sandbox-tmp-test.txt` escribió, leyó y borró sin error, código 0.
+      No afecta a Engram (su DB no vive ahí) pero sigue siendo una vía abierta si en algún momento se
+      necesita bloquear *cualquier* escritura fuera del proyecto, no solo la de un binario puntual.
 - [ ] **opencode y Agy no tienen un sandbox nativo equivalente al de Codex** (`-s workspace-write`) —
       dependen enteramente del wrapper por `PATH`, que a su vez depende de que su herramienta de shell
       siga heredando el entorno del proceso padre. Si en una versión futura de cualquiera de los dos
@@ -71,7 +72,17 @@ lanzado"). Ninguno de estos está aplicado todavía — quedan acá para no perd
 - [ ] **Verificar si gentle-ai probó su propio "Permissions" (deny-list) contra un bypass real** — se
       especuló en Phyume que es la misma clase de barrera blanda que la de acá, pero nunca se confirmó
       revisando su código/tests, solo su documentación pública.
-- [ ] **Confirmar si Claude Code, cuando lanza subagentes nativos (Task tool) en vez de CLIs vía Herdr,
-      tiene el mismo problema de fondo** — un subagente nativo con acceso a bash podría en teoría llegar
-      al binario real de Engram igual que Codex, si no se lo restringe de alguna forma. No se probó
-      todavía porque toda la ronda de pruebas fue vía Herdr con CLIs externos.
+- [x] **Confirmado: un subagente nativo de Claude Code (Task tool) tiene escritura sin ninguna
+      restricción en Engram.** Probado en vivo: un subagente `general-purpose` lanzado con el Task tool
+      (no vía Herdr) pudo (a) llamar `mcp__plugin_engram_engram__mem_save` directo y guardar una memoria
+      real sin ningún gate — limpiada después con `engram delete <id> --hard`; y (b) ejecutar el binario
+      real `engram mcp --tools=all` por Bash sin ningún bloqueo de sandbox/permisos. A diferencia de los
+      CLIs externos (Codex/opencode/Agy), acá **no hay wrapper por `PATH` ni sandbox nativo que aplique**
+      — un subagente nativo corre con el mismo nivel de confianza que la sesión orquestadora.
+      **No es necesariamente un bug**: el diseño original de Engram (Paso 4, "search abierto, save
+      centralizado en el orquestador") ya asumía que la restricción técnica solo hacía falta contra CLIs
+      *externos* potencialmente adversariales — un subagente nativo es "nosotros mismos". Pero el texto
+      del guardrail nunca decía esto explícitamente para subagentes de Task tool, solo hablaba de CLIs
+      vía Herdr. **Aplicado**: aclarado en `SKILL.md` que `mem_save` queda reservado a la sesión
+      orquestadora *incluyendo* cuando delega a subagentes nativos — un subagente lanzado con el Task
+      tool no debería llamar `mem_save` directo, debe reportar hallazgos de vuelta al orquestador.
