@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Restricted wrapper for the real `engram` binary.
+# Only allows: engram mcp --tools=mem_search [--project NAME]
+# Blocks everything else (save, delete, --tools=all, --tools=mem_save, raw stdio tricks, etc.)
+# so a spawned CLI (Codex/opencode/Agy) can search shared memory but cannot write to it,
+# even if it tries to shell out and construct the call by hand.
+set -euo pipefail
+
+REAL_ENGRAM="/opt/homebrew/bin/engram"
+
+deny() {
+  echo "engram (restricted): blocked — only 'engram mcp --tools=mem_search [--project NAME]' is permitted here. Attempted: engram $*" >&2
+  exit 1
+}
+
+if [ "${1:-}" != "mcp" ]; then
+  deny "$@"
+fi
+shift
+
+tools_ok=0
+i=0
+args=("$@")
+n=${#args[@]}
+while [ "$i" -lt "$n" ]; do
+  arg="${args[$i]}"
+  case "$arg" in
+    --tools=mem_search)
+      tools_ok=1
+      ;;
+    --project)
+      i=$((i + 1))
+      if [ "$i" -ge "$n" ]; then
+        deny mcp "$@"
+      fi
+      ;;
+    *)
+      deny mcp "$@"
+      ;;
+  esac
+  i=$((i + 1))
+done
+
+if [ "$tools_ok" -ne 1 ]; then
+  deny mcp "$@"
+fi
+
+exec "$REAL_ENGRAM" mcp "$@"

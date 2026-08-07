@@ -1,0 +1,80 @@
+# Changelog — agent-selection
+
+Historial de ajustes de la skill. Entradas v0.1 a v0.11 comprimidas a una línea cada una — detalle
+completo solo en la más reciente (criterio: la anterior ya cumplió su función de trazabilidad, no hace
+falta repetirla entera).
+
+- **v0.1** — primera versión, basada en [[Agent Harness Patterns]] y pruebas de coordinación con Herdr.
+- **v0.2** — chequeo de Herdr pasa a ser el Paso 0 obligatorio, antes de cualquier otra evaluación.
+- **v0.3** — modelos fijos por CLI (Opus 5 / gpt-5.6-luna / DeepSeek V4 Flash Free / Gemini 3.6 Flash).
+- **v0.4** — Codex de `xhigh` a `high`, fijado explícito por no confiar en el config global.
+- **v0.5** — Paso 1/2 realineados al esquema de tres rutas de `trigger-rules.md` de gentle-ai.
+- **v0.6** — lanzar agentes en el pane root del tab nuevo, nunca con `pane split`.
+- **v0.7** — primera revisión ciega real (Codex+opencode): 5 problemas convergentes + bug de invocación
+  de Codex corregidos (fallback de model tiering, criterios objetivos, prioridad entre preguntas del
+  Paso 2, justificación del Paso 0, fuentes externas, `-m gpt-5.6-luna`).
+- **v0.8** — operacionalizado Blind dual-judge (quién coordina, cómo evitar fuga entre jueces) y Paso 5
+  condicionado a rutas con CLI externo real.
+- **v0.9** — Paso 0: nunca iniciar el server por cuenta propia, y verificar que la sesión esté *dentro*
+  de Herdr (no solo que el server esté `running`).
+- **v0.10** — primera prueba de Lentes paralelas 4R (4 evaluadores reales): agregado el **Paso 6 —
+  fallos a mitad de camino** (timeout, detección de Herdr caído, degradación con resultados parciales,
+  limpieza de tabs, qué pasa si la corrección única falla) y verificación de arranque real en el Paso 4.
+- **v0.11** — aplicados los 5 hallazgos de la lente Risk: lista de riesgo ampliada (CI/CD, infra,
+  migraciones, config de producción), el riesgo anula Direct inline aunque el conteo de archivos diga
+  lo contrario, guardrails de seguridad en el Paso 4 (lectura por defecto, escritura requiere
+  confirmación aparte, nunca destructivo sin supervisión), no pegar secretos en los prompts, y
+  correcciones sobre la lista de riesgo requieren confirmación del usuario, no solo del orquestador.
+- **v0.12** — aplicados los 5 hallazgos de Readability, cierra el ciclo de las 4 lentes 4R: dedupe del
+  fallback de model tiering, Blind dual-judge reubicado del Paso 4 al Paso 3, glosario de jerga
+  Herdr/TUI en el Paso 4, meta-comentarios narrativos recortados del Paso 0, changelog histórico
+  comprimido a una línea por versión.
+- **v0.13** — primera prueba real de Model tiering (patrón 4) con división de trabajo genuina: Agy
+  extrajo mecánicamente los 11 comandos `herdr ...` citados en el archivo, el orquestador los comparó
+  contra `herdr --help` real (la parte que sí requiere criterio). Los 11 son válidos; encontró un
+  hallazgo menor: la nota de Codex en la tabla del Paso 4 citaba `` `agent send <target> "3"` `` sin el
+  prefijo `herdr` — único comando del archivo escrito así, no ejecutable si se copia literal. Corregido
+  a `` `herdr agent send <target> "3"` ``.
+- **v0.14** — el changelog se movió de `SKILL.md` a este archivo (`CHANGELOG.md`), en el mismo
+  directorio de la skill — decisión explícita del usuario para que el historial no infle el archivo
+  que se carga en cada invocación. `SKILL.md` ahora solo tiene un puntero acá.
+- **v0.15** — agregado el diseño de memoria compartida (Engram) al Paso 4: search abierto para
+  ejecutores/jueces lanzados vía Herdr (`engram mcp --tools=mem_search`), `mem_save` reservado al
+  orquestador. Probado en vivo registrando Engram en `~/.config/opencode/opencode.jsonc` restringido a
+  `mem_search` y lanzando opencode vía Herdr: `mem_search` funcionó de verdad (encontró las memorias
+  reales guardadas esta sesión), pero opencode logró saltarse la restricción invocando el binario
+  `engram mcp --tools=all` directamente por bash y escribió una memoria real de todos modos (limpiada
+  después, obs #657 hard-deleted). Hallazgo documentado: la restricción `--tools=` es una barrera
+  blanda (evita el uso accidental por el flujo normal de tool-calling), no un límite de seguridad
+  garantizado contra un CLI con acceso a shell.
+- **v0.16** — mejorada la barrera y probada con los tres CLIs. Creado
+  `restricted-bin/engram` (wrapper que solo deja pasar `engram mcp --tools=mem_search`, bloquea todo lo
+  demás con exit 1) y activado anteponiéndolo al `PATH` dentro del mismo comando de `pane run` (no con
+  `tab create --env`, que el shell interactivo pisa con sus dotfiles). Registrado Engram también en
+  Codex (`~/.codex/config.toml`) y Agy (`~/.gemini/config/mcp_config.json`). Resultado: **opencode y Agy
+  respetan el wrapper** — ambos intentos de bypass (`--tools=all`, `--tools=mem_save`) quedaron
+  bloqueados con exit 1. **Codex no** — su herramienta de ejecución reconstruye su propio entorno en
+  sandbox; `which engram` ahí adentro resuelve al binario real sin importar el `PATH` externo, y el
+  intento de bypass llegó al binario real (solo falló por un error de DB ajeno, `readonly database`, no
+  por el wrapper). Documentado como límite conocido: para Codex, no registrarle `mem_save` en su propio
+  MCP config es la única mitigación real disponible por ahora.
+- **v0.17** — encontrada la barrera real para Codex: no un truco de `PATH`, sino su propio sandbox de
+  ejecución (macOS Seatbelt). Probado `-s read-only`: descartado — demasiado estricto, bloquea hasta
+  `mem_search` porque `engram mcp` necesita escritura incidental (migración de schema) para arrancar,
+  sin importar qué tools se pidan. Probado `-s workspace-write`: funciona — Codex solo puede escribir
+  dentro del proyecto, `~/.engram/` (la DB real) queda fuera y el sandbox del SO lo deniega
+  (confirmado con un `echo > archivo` fuera del workspace dando `Operation not permitted`, la misma
+  clase de error que el intento contra Engram). `mem_search` sigue funcionando normal porque pasa por la
+  conexión MCP, no por el sandbox de shell. Agregado `-s workspace-write` a la invocación estándar de
+  Codex en el Paso 4 — no es solo para Engram, es un guardrail de seguridad razonable en general
+  (Codex no puede escribir fuera del proyecto ni por accidente).
+- **v0.18** — creado `TODO.md` con los pendientes de seguridad detectados durante la ronda de pruebas
+  de v0.15-v0.17, priorizados. El más importante: el wrapper de Engram vive dentro del árbol del
+  proyecto, que los mismos CLIs que restringe pueden escribir bajo `-s workspace-write` — nadie probó
+  todavía si un CLI puede editar/borrar el wrapper para anular la restricción antes de intentar el
+  bypass. `SKILL.md` ahora apunta a `TODO.md` desde "Estado y ajustes".
+- **v0.19** — decisión explícita del usuario: Claude Code pasa de Opus 5 a **Sonnet 5**, sin flag de
+  modelo (`claude` a secas usa el default actual de la CLI). Cambiado en las tres referencias de
+  `SKILL.md`: el ejemplo de lanzamiento del Paso 4, la fila de la tabla "Modelos fijos por CLI" (se
+  quitó también la justificación "mayor razonamiento para planificar", específica de Opus), y el modo
+  sin Herdr (subagentes nativos). El resto de los CLIs (Codex, opencode, Agy) no cambia.
