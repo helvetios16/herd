@@ -193,3 +193,7 @@ falta repetirla entera).
   la decisión, con puntero al historial completo acá (v0.15-v0.28) para no perder el trabajo hecho. El
   wrapper y los agentes custom `safe-reviewer` de Codex/opencode quedan en el filesystem sin usar, por
   si se revierte esta decisión más adelante.
+- **v0.30** — corregido puntero desactualizado en "Estado y ajustes": todavía decía que `TODO.md` tenía
+  "un gap crítico sin corregir (el wrapper de Engram vive dentro del árbol del proyecto)", pero eso se
+  cerró en v0.20 y `TODO.md` quedó sin pendientes activos desde v0.25. Reemplazado por una nota correcta
+  apuntando a `TODO.md` como registro de método/hallazgos de la ronda v0.20-v0.29.

@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.29"
+  version: "0.30"
 ---
 
 ## Qué hace esta skill
@@ -320,6 +320,5 @@ patrón se completó si no se completó.**
 ## Estado y ajustes
 
 Historial completo de versiones en `CHANGELOG.md`, en este mismo directorio de la skill — no se carga
-acá para no inflar el archivo que se lee en cada invocación. Pendientes de seguridad sin resolver en
-`TODO.md` — incluye un gap crítico todavía sin corregir (el wrapper de Engram vive dentro del árbol del
-proyecto, que los mismos CLIs que restringe pueden escribir).
+acá para no inflar el archivo que se lee en cada invocación. `TODO.md` queda como registro de método y
+hallazgos de la ronda de seguridad v0.20-v0.29, sin pendientes activos.
