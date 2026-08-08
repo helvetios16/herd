@@ -197,3 +197,11 @@ falta repetirla entera).
   "un gap crítico sin corregir (el wrapper de Engram vive dentro del árbol del proyecto)", pero eso se
   cerró en v0.20 y `TODO.md` quedó sin pendientes activos desde v0.25. Reemplazado por una nota correcta
   apuntando a `TODO.md` como registro de método/hallazgos de la ronda v0.20-v0.29.
+- **v0.31** — hallazgo real del primer patrón multi-agente completo corrido de verdad vía
+  `sdd-implement` (3 CLIs externos en paralelo — Codex, opencode, Agy — escribiendo `sdd-propose`,
+  `sdd-verify`, `sdd-archive`): `herdr agent send <target> <text>` solo tipea texto, **no presiona
+  Enter** — confirmado en `herdr agent --help` ("agent send writes literal text; use pane run when
+  you want command text plus Enter"). Los 3 CLIs quedaron con el prompt pegado en el input box sin
+  arrancar hasta mandar `pane run <target> ""` (texto vacío, solo somete lo ya tipeado). Documentado
+  en el Paso 4: usar `pane run`, no `agent send`, para mandar el prompt real de la tarea una vez
+  verificado el arranque.

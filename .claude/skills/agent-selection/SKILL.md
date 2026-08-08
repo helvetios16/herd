@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.30"
+  version: "0.31"
 ---
 
 ## Qué hace esta skill
@@ -186,6 +186,15 @@ bloqueado en una pantalla de confirmación es indistinguible de uno "pensando" p
 puede no reportar `idle` nunca. Si no aparece el banner esperado en ~10-15s, resolver el bloqueo (ver
 gotchas por CLI en la tabla) antes de mandar el prompt real y antes de entrar a esperar — nunca mandar
 el prompt a ciegas justo después de `pane run`.
+
+**Mandar el prompt real de la tarea una vez verificado el arranque — usar `pane run`, no `agent
+send`.** Confirmado en vivo (`herdr agent --help`): `agent send <target> <text>` **solo tipea texto,
+no presiona Enter** — el prompt queda pegado en el input box del CLI sin someterse, indistinguible de
+"trabajando" hasta que se revisa el pane. `pane run <target> "<texto>"` sí tipea y presiona Enter. Si
+el prompt ya se mandó por error con `agent send` y quedó sin enviar, `pane run <target> ""` (texto
+vacío) alcanza para someter lo que ya está tipeado, sin re-tipear nada. Al lanzar varios agentes en
+paralelo, mandar el `pane run` del prompt real a **todos** antes de leer la respuesta de cualquiera
+(mismo criterio que Blind dual-judge, punto 2 más abajo).
 
 **Guardrails de seguridad al lanzar agentes con capacidad de escritura:**
 
