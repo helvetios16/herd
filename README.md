@@ -1,6 +1,20 @@
 # herd
 
-Repo de skills de Claude Code. Por ahora contiene una sola: [`agent-selection`](.claude/skills/agent-selection/).
+Repo de skills de Claude Code. Principios generales del repo en
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (Spec-Driven Development vía
+[Spec Kit](https://github.com/github/spec-kit)).
+
+## Skills
+
+- [`agent-selection`](.claude/skills/agent-selection/) — evalúa si una tarea requiere un solo agente
+  o un patrón multi-agente coordinado vía Herdr, y qué CLI/modelo asignar a cada rol.
+- [`sdd-implement`](.claude/skills/sdd-implement/) — ejecuta `tasks.md` de una feature de Spec Kit
+  delegando cada fase al framework de decisión de `agent-selection`, en vez de correr todo inline
+  como `/speckit-implement` nativo.
+- `speckit-*` — las 10 skills nativas de Spec Kit (`constitution`, `specify`, `plan`, `tasks`,
+  `implement`, `converge`, `clarify`, `analyze`, `checklist`, `taskstoissues`), instaladas por
+  `specify init` sin modificar. Usar `constitution` → `specify` → `plan` → `tasks` para dejar las
+  bases de una feature, y `sdd-implement` (no `speckit-implement`) para ejecutarlas.
 
 ## agent-selection
 
