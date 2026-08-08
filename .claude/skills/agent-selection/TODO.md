@@ -13,8 +13,13 @@ aplicar porque ya no hay una conexión de Engram que defender en Codex/opencode/
 
 ## Estado
 
-Sin pendientes activos. El último ítem (`safe-reviewer`, v0.26) se verificó en vivo el mismo día: no
-hizo falta reiniciar la sesión después de todo — el nuevo `.claude/agents/` se detectó solo.
+Sin pendientes activos de la ronda de seguridad de Engram (Crítico/Alto/Medio/Bajo abajo). El último
+ítem de esa ronda (`safe-reviewer`, v0.26) se verificó en vivo el mismo día: no hizo falta reiniciar
+la sesión después de todo — el nuevo `.claude/agents/` se detectó solo.
+
+**Un (1) pendiente activo, de otra ronda distinta** (mecánica de lanzamiento multi-agente, no
+seguridad de Engram): ver sección "Mecánica de lanzamiento multi-agente" más abajo — confirmación
+interactiva de Agy por archivo escrito, sin `--sandbox`, todavía sin verificar a fondo.
 
 - [x] **Verificado en vivo: `.claude/agents/safe-reviewer.md` (`disallowedTools`) bloquea de verdad
       `mem_save` y `Bash`.** Lanzado un subagente real con `subagent_type: safe-reviewer`, pedido
@@ -110,6 +115,32 @@ hizo falta reiniciar la sesión después de todo — el nuevo `.claude/agents/` 
       confirmación humana explícita antes de lanzar cualquier agente con esa capacidad — que en wrappers
       puntuales por binario. Si en el futuro aparece un caso concreto y angosto (no especulativo) que
       lo amerite, evaluarlo con la misma metodología de prueba adversarial usada en este TODO.
+
+## Mecánica de lanzamiento multi-agente (hallazgos v0.30-v0.31)
+
+Hallazgos de la primera corrida real de un patrón multi-agente completo vía `sdd-implement`
+(Orquestador + 3 CLIs externos en paralelo — Codex, opencode, Agy — ver `CHANGELOG.md` v0.31).
+Distinto en naturaleza del resto de este archivo (que es sobre la barrera de escritura a Engram) —
+son hallazgos sobre la mecánica de lanzamiento del Paso 4, no de seguridad.
+
+- [x] **`herdr agent send` no somete el prompt — resuelto en v0.31.** Los 3 CLIs quedaron con el
+      prompt largo pegado en su input box sin arrancar (0 archivos escritos por varios minutos)
+      hasta mandar `herdr pane run <target> ""` para completar el submit. Documentado en el Paso 4:
+      usar `pane run`, no `agent send`, para el prompt real de la tarea.
+- [ ] **Agy pidió confirmación interactiva por archivo escrito, sin `--sandbox`.** Al escribir
+      `sdd-archive/SKILL.md` y `sdd-archive/CHANGELOG.md`, Agy mostró dos veces "Allow creation of
+      this file? 1. Yes 2. No" — bloqueando el pane hasta aprobar con `herdr pane run <target> "1"`.
+      Esto pasó con el comando default (`agy --model gemini-3.6-flash-high`, **sin** `--sandbox`).
+      Contradice/afina la nota actual del Paso 4, que solo documenta esta fricción como consecuencia
+      de agregar `--sandbox` — sugiere que la confirmación por escritura de archivo es un
+      comportamiento default de Agy, independiente del sandbox. **No verificado a fondo todavía**:
+      solo 2 confirmaciones observadas en una sola corrida, no se probó si es consistente en todo
+      write, si depende de alguna config (`--dangerously-skip-permissions` u otra), ni si aplica
+      igual a comandos de shell (no solo creación de archivos). Antes de dar por cerrado: repetir con
+      Agy en un rol de escritura de nuevo y confirmar el patrón, luego actualizar la nota del Paso 4
+      (tabla de CLI/modelo) para que quien lance Agy con capacidad de escritura sepa de antemano que
+      hay que estar atento a estos prompts — mismo tipo de gotcha ya documentado para el hook de
+      confirmación de Codex al primer arranque.
 
 ## Bajo / investigar
 
