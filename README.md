@@ -11,10 +11,19 @@ Repo de skills de Claude Code. Principios generales del repo en
 - [`sdd-implement`](.claude/skills/sdd-implement/) — ejecuta `tasks.md` de una feature de Spec Kit
   delegando cada fase al framework de decisión de `agent-selection`, en vez de correr todo inline
   como `/speckit-implement` nativo.
+- [`sdd-propose`](.claude/skills/sdd-propose/) — encuadra una feature (problema, alcance, archivos
+  afectados, riesgos, rollback) antes de `/speckit-specify`, dejando `proposal.md` en la misma
+  carpeta que `spec.md`.
+- [`sdd-verify`](.claude/skills/sdd-verify/) — verifica una feature ya implementada contra `spec.md`
+  con evidencia real, criterio por criterio, en `verify-report.md`.
+- [`sdd-archive`](.claude/skills/sdd-archive/) — archiva una feature con `verify-report.md` limpio a
+  `specs/_archive/`, con confirmación humana explícita antes de mover nada.
 - `speckit-*` — las 10 skills nativas de Spec Kit (`constitution`, `specify`, `plan`, `tasks`,
   `implement`, `converge`, `clarify`, `analyze`, `checklist`, `taskstoissues`), instaladas por
-  `specify init` sin modificar. Usar `constitution` → `specify` → `plan` → `tasks` para dejar las
-  bases de una feature, y `sdd-implement` (no `speckit-implement`) para ejecutarlas.
+  `specify init` sin modificar.
+
+Ciclo SDD completo de este repo: `sdd-propose` → `speckit-specify` → `speckit-plan` →
+`speckit-tasks` → `sdd-implement` (no `speckit-implement`) → `sdd-verify` → `sdd-archive`.
 
 ## agent-selection
 
