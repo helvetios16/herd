@@ -12,3 +12,13 @@
   tiering). `speckit-implement` sigue instalado sin tocar, como fallback nativo. No cubre las fases
   de proposal ni review/verify+archive del roadmap SDD — quedan archivadas, fuera de alcance de
   esta versión.
+- **v0.2** — primer trial en vivo (Principio I de la constitución), caso real: `scripts/check-skills.sh`
+  corrido de punta a punta con `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
+  `/sdd-implement` (`specs/001-skill-audit/`). Las 5 fases resolvieron Direct inline (un solo
+  archivo, mecánico, sin lista de riesgo) — confirma que el puente no sobre-escala un caso trivial,
+  pero deja sin ejercitar la rama delegada/multi-agente (pendiente de un segundo trial con un caso
+  que la active). Hallazgo aplicado: el paso 4 del Paso 1 ("reusar tal cual" la verificación de
+  ignore-files de `speckit-implement`) aplicado ciego hubiera generado un `.gitignore` genérico con
+  patrones de stacks que este repo no usa, violando el Principio II. Aclarado que "reusar por
+  referencia" no es "aplicar ciego": cualquier paso reusado que no aplique al caso real se omite
+  explícitamente, con la razón.

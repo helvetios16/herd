@@ -5,7 +5,7 @@ argument-hint: "Guía opcional de implementación o filtro de tareas (mismo form
 compatibility: "Requiere estructura de proyecto Spec Kit (.specify/) con tasks.md generado, y la skill agent-selection en este mismo repo"
 metadata:
   status: experimental
-  version: "0.1"
+  version: "0.2"
 user-invocable: true
 disable-model-invocation: false
 ---
@@ -41,11 +41,20 @@ Reusar tal cual, sin reescribir, los pasos 1-4 de `.claude/skills/speckit-implem
    preguntar** antes de seguir, igual que el nativo.
 3. Cargar contexto: `tasks.md` (requerido), `plan.md` (requerido), `spec.md`,
    `.specify/memory/constitution.md`, y `data-model.md`/`contracts/`/`research.md` si existen.
-4. Verificación de setup del proyecto (ignore files según stack detectado en `plan.md`).
+4. Verificación de setup del proyecto (ignore files según stack detectado en `plan.md`) — **con
+   criterio, no ciego**: si el stack real de la feature (según `plan.md`) no genera ningún artefacto
+   que necesite ignorarse, omitir este paso explícitamente y decirlo en el reporte de la fase de
+   Setup, en vez de crear un `.gitignore` genérico con patrones de stacks que este repo no usa —
+   Principio II de la constitución (no generalizar sin necesidad concreta). Confirmado en vivo: un
+   script bash de mantenimiento (sin build ni dependencias) no ameritó `.gitignore` — ver
+   `CHANGELOG.md` v0.2.
 
 Se referencia esta sección en vez de copiarla para que un cambio futuro en `speckit-implement`
 (por una actualización de `specify`) no deje a esta skill con una copia desactualizada — Principio
-VI de la constitución (concepto por encima de marca/versión puntual de la herramienta).
+VI de la constitución (concepto por encima de marca/versión puntual de la herramienta). Esto
+también aplica al resto del Paso 1: reusar por referencia no significa aplicar ciego — cualquier
+paso de `speckit-implement` que no aplique al caso real de la feature se omite explícitamente, con
+la razón, no se ejecuta solo porque el nativo lo hace incondicionalmente.
 
 ## Paso 2 — parsear `tasks.md` en fases (igual que `speckit-implement`)
 
