@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.31"
+  version: "0.32"
 ---
 
 ## Qué hace esta skill
@@ -247,16 +247,28 @@ dormidos, por si en algún momento se decide volver a registrar Engram en algún
 | **Claude Code** | Sonnet 5 (default de la CLI, sin flag) | `claude` | Orquestador/líder — mejor detección de estado (`agent wait --status idle` confiable) |
 | **Codex** | gpt-5.6-luna · high | `codex -m gpt-5.6-luna -c model_reasoning_effort="high" -s workspace-write` | Segunda opinión/ejecutor independiente. `-s workspace-write` limita su sandbox a escribir solo dentro del proyecto — guardrail de seguridad general, no específico de Engram (que ya no está registrado, ver más abajo). Al primer arranque puede pedir confirmación de hooks (bloquea el pane hasta resolverlo con `herdr agent send <target> "3"`) |
 | **opencode** | DeepSeek V4 Flash Free | `opencode -m opencode/deepseek-v4-flash-free` | Ejecutor independiente. `agent wait --status idle` no es confiable — sondear con `agent read` en vez de esperar a ciegas |
-| **Agy** (Antigravity) | Gemini 3.6 Flash · High | `agy --model gemini-3.6-flash-high` | Minion/ejecutor mecánico en model tiering. TUI de alt-screen — leer con `--source visible`, no `recent`. Esperar a que termine de bootear antes del prompt real |
+| **Agy** (Antigravity) | Gemini 3.6 Flash · High | `agy --model gemini-3.6-flash-high` | Minion/ejecutor mecánico en model tiering. TUI de alt-screen — leer con `--source visible`, no `recent`. Esperar a que termine de bootear antes del prompt real. **No es fire-and-forget con capacidad de escritura** — ver nota abajo, pide confirmación por cada acción |
 
-Nota Agy — sandbox nativo disponible pero no usado por default: agregar `--sandbox` da un aislamiento
+Nota Agy — **confirmación por acción es el comportamiento default, no algo que trae `--sandbox`**
+(corregido tras probarlo en vivo, la nota anterior decía lo contrario). Con el comando default
+(`agy --model gemini-3.6-flash-high`, **sin** `--sandbox`), cada archivo que crea/edita y cada
+comando de shell que corre dispara un prompt bloqueante ("Allow creation of this file?" / "Requesting
+permission for: `<comando>`") que hay que aprobar uno por uno con `herdr pane run <target> "1"` — con
+5 escrituras seguidas (3 archivos + 1 comando, en una prueba real) salieron 4 prompts, ninguno
+agrupado. Un rol de Agy con capacidad de escritura en un patrón multi-agente **no se puede lanzar y
+dejar corriendo sin supervisión** — hay que sondear el pane (`agent read --source visible`) y aprobar
+cada prompt a medida que aparece, igual que se hace con el hook de Codex. Además, la **primera vez**
+que Agy corre en un directorio que no vio antes pide un trust prompt único ("Do you trust the contents
+of this project?") — se aprueba igual, con `herdr pane run <target> ""` (la opción default ya es
+"Yes, I trust this folder").
+
+Separado de esto, Agy también tiene un **sandbox nativo opcional** (`--sandbox`): da un aislamiento
 más fuerte que el `-s workspace-write` de Codex (en macOS usa `sandbox-exec` y bloquea *lectura y
 escritura* fuera del proyecto, no solo escritura — probado en vivo). No es el comando default porque
-introduce un prompt de confirmación interactivo antes de cada comando de shell, que rompe el patrón de
-lanzamiento autónomo en background de este Paso 4. Usarlo cuando el aislamiento importe más que la
-fricción de aprobar cada comando — y **nunca combinarlo con `--dangerously-skip-permissions`**:
-vulnerabilidad documentada (`google-antigravity/antigravity-cli#36`) que deja que el modelo se
-auto-apruebe saltar el sandbox por completo.
+suma fricción de confirmación *adicional* a la que ya existe por default (ver arriba) — usarlo cuando
+el aislamiento del sandbox importe más que esa fricción extra, y **nunca combinarlo con
+`--dangerously-skip-permissions`**: vulnerabilidad documentada (`google-antigravity/antigravity-cli#36`)
+que deja que el modelo se auto-apruebe saltar el sandbox por completo.
 
 Nota Codex: `~/.codex/config.toml` trae `model_reasoning_effort = "xhigh"` como default global — distinto
 del `high` fijado acá. La invocación pasa **ambos** flags explícitos, `-m gpt-5.6-luna` y

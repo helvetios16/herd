@@ -17,9 +17,9 @@ Sin pendientes activos de la ronda de seguridad de Engram (Crítico/Alto/Medio/B
 ítem de esa ronda (`safe-reviewer`, v0.26) se verificó en vivo el mismo día: no hizo falta reiniciar
 la sesión después de todo — el nuevo `.claude/agents/` se detectó solo.
 
-**Un (1) pendiente activo, de otra ronda distinta** (mecánica de lanzamiento multi-agente, no
-seguridad de Engram): ver sección "Mecánica de lanzamiento multi-agente" más abajo — confirmación
-interactiva de Agy por archivo escrito, sin `--sandbox`, todavía sin verificar a fondo.
+La otra ronda distinta (mecánica de lanzamiento multi-agente, no seguridad de Engram — ver sección
+"Mecánica de lanzamiento multi-agente" más abajo) también quedó sin pendientes activos: el ítem de
+Agy se verificó a fondo y se cerró en v0.32.
 
 - [x] **Verificado en vivo: `.claude/agents/safe-reviewer.md` (`disallowedTools`) bloquea de verdad
       `mem_save` y `Bash`.** Lanzado un subagente real con `subagent_type: safe-reviewer`, pedido
@@ -127,20 +127,18 @@ son hallazgos sobre la mecánica de lanzamiento del Paso 4, no de seguridad.
       prompt largo pegado en su input box sin arrancar (0 archivos escritos por varios minutos)
       hasta mandar `herdr pane run <target> ""` para completar el submit. Documentado en el Paso 4:
       usar `pane run`, no `agent send`, para el prompt real de la tarea.
-- [ ] **Agy pidió confirmación interactiva por archivo escrito, sin `--sandbox`.** Al escribir
-      `sdd-archive/SKILL.md` y `sdd-archive/CHANGELOG.md`, Agy mostró dos veces "Allow creation of
-      this file? 1. Yes 2. No" — bloqueando el pane hasta aprobar con `herdr pane run <target> "1"`.
-      Esto pasó con el comando default (`agy --model gemini-3.6-flash-high`, **sin** `--sandbox`).
-      Contradice/afina la nota actual del Paso 4, que solo documenta esta fricción como consecuencia
-      de agregar `--sandbox` — sugiere que la confirmación por escritura de archivo es un
-      comportamiento default de Agy, independiente del sandbox. **No verificado a fondo todavía**:
-      solo 2 confirmaciones observadas en una sola corrida, no se probó si es consistente en todo
-      write, si depende de alguna config (`--dangerously-skip-permissions` u otra), ni si aplica
-      igual a comandos de shell (no solo creación de archivos). Antes de dar por cerrado: repetir con
-      Agy en un rol de escritura de nuevo y confirmar el patrón, luego actualizar la nota del Paso 4
-      (tabla de CLI/modelo) para que quien lance Agy con capacidad de escritura sepa de antemano que
-      hay que estar atento a estos prompts — mismo tipo de gotcha ya documentado para el hook de
-      confirmación de Codex al primer arranque.
+- [x] **Verificado a fondo: Agy pide confirmación interactiva por acción (archivo o comando), sin
+      `--sandbox` — es su comportamiento default, no algo que trae el sandbox.** Repetido el
+      experimento en vivo (v0.32): Agy lanzado de nuevo vía Herdr en un directorio nuevo, pedido
+      crear 3 archivos y correr un comando de shell (`date`), sin `--sandbox`. Resultado: **4 de 4
+      acciones pidieron confirmación individual** (3 archivos + 1 comando), ninguna agrupada — más
+      un **trust prompt único** ("Do you trust the contents of this project?") por ser la primera vez
+      en ese directorio, que no había aparecido en el trial de `herd` porque Agy ya lo tenía confiado
+      de sesiones anteriores. Contradecía la nota anterior del Paso 4, que atribuía la fricción de
+      confirmación solo a `--sandbox` — corregido: la nota de Agy en el Paso 4 ahora dice
+      explícitamente que un rol de Agy con capacidad de escritura no es fire-and-forget, hay que
+      sondear (`agent read --source visible`) y aprobar cada prompt a medida que aparece, y que el
+      sandbox nativo suma fricción *adicional* a la que ya existe por default.
 
 ## Bajo / investigar
 

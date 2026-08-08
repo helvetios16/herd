@@ -205,3 +205,12 @@ falta repetirla entera).
   arrancar hasta mandar `pane run <target> ""` (texto vacío, solo somete lo ya tipeado). Documentado
   en el Paso 4: usar `pane run`, no `agent send`, para mandar el prompt real de la tarea una vez
   verificado el arranque.
+- **v0.32** — verificado a fondo el pendiente de `TODO.md` sobre Agy (lanzado de nuevo vía Herdr, en
+  un directorio nuevo, pidiéndole crear 3 archivos y correr un comando de shell). Confirmado: la
+  confirmación por acción **es el comportamiento default de Agy, no algo que trae `--sandbox`** — la
+  nota anterior decía lo contrario. Sin `--sandbox`, cada archivo creado y cada comando de shell
+  disparó su propio prompt bloqueante (4 prompts para 3 archivos + 1 comando, ninguno agrupado);
+  además, la primera corrida en un directorio nuevo agregó un trust prompt único adicional. Corregida
+  la nota de Agy en el Paso 4: un rol de Agy con capacidad de escritura no es fire-and-forget, hay que
+  sondear y aprobar cada prompt — el sandbox nativo (`--sandbox`) suma fricción *adicional* a esta,
+  no es la causa. `TODO.md` actualizado: el ítem queda cerrado.
