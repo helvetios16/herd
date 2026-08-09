@@ -5,7 +5,7 @@ argument-hint: "Guía opcional de implementación o filtro de tareas (mismo form
 compatibility: "Requiere estructura de proyecto Spec Kit (.specify/) con tasks.md generado, y la skill agent-selection en este mismo repo"
 metadata:
   status: experimental
-  version: "0.2"
+  version: "0.4"
 user-invocable: true
 disable-model-invocation: false
 ---
@@ -96,7 +96,13 @@ abajo):
 5. Ejecutar la fase según la ruta decidida (inline / subagente único / patrón multi-agente), con las
    mismas reglas de coordinación por archivo que ya trae `speckit-implement` nativo: tareas que
    tocan el mismo archivo nunca corren concurrentes, aunque estén en roles distintos de un patrón
-   multi-agente.
+   multi-agente. **El cwd del Bash tool no persiste entre llamadas — confirmado en vivo (v0.3)**:
+   cada invocación de Bash arranca en el working directory primario de la sesión, sin importar qué
+   `cd` haya corrido en una llamada anterior; solo sobrevive dentro de la misma invocación compuesta
+   (`cd /ruta/absoluta && comando`). Para comandos de fase que dependen de un cwd específico (tests,
+   builds, scripts que leen `.env` relativo), prefijar siempre `cd /ruta/absoluta/de/la/fase &&` en el
+   mismo comando — nunca asumir que un `cd` de un paso anterior se mantiene. Un fallo que parece de
+   código (variable de entorno faltante, módulo no encontrado) puede ser en realidad esto.
 6. **Marcar `[X]` en `tasks.md`** cada tarea de la fase a medida que se confirma terminada — sin
    importar si la ejecutó esta sesión, un subagente delegado, o un rol de un patrón multi-agente.
    Esta sesión (el orquestador) es la única que edita `tasks.md` — un CLI delegado nunca escribe
@@ -104,7 +110,12 @@ abajo):
 7. **Fallos a mitad de fase**: aplicar el Paso 6 de agent-selection tal cual (timeouts explícitos,
    nunca esperar indefinido, limpiar tabs huérfanos, degradación con resultados parciales reportada
    explícitamente) — mismo criterio que ya usa `speckit-implement` de "halt si falla una tarea no
-   paralela, seguir y reportar si falla una `[P]`", combinado con las reglas de Herdr.
+   paralela, seguir y reportar si falla una `[P]`", combinado con las reglas de Herdr. **Extensión a
+   infra externa (v0.3)**: el mismo principio del Paso 6 punto 2 de agent-selection ("Herdr puede caer
+   a mitad de camino, sin señal proactiva — se detecta porque el siguiente comando falla") aplica a
+   cualquier dependencia externa que la fase necesite (DB, contenedores Docker/OrbStack, servicios
+   locales) — si una fase que depende de infra externa falla de forma rara, verificar primero que esa
+   infra siga viva antes de asumir que el fallo es del código.
 
 ## Paso 4 — cierre
 

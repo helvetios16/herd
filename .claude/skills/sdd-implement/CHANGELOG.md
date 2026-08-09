@@ -22,3 +22,21 @@
   patrones de stacks que este repo no usa, violando el Principio II. Aclarado que "reusar por
   referencia" no es "aplicar ciego": cualquier paso reusado que no aplique al caso real se omite
   explícitamente, con la razón.
+- **v0.3** — cerrados 2 hallazgos de una segunda ronda de feedback en earpi (US1, T011-T014, ver
+  `TODO.md` de `agent-selection`, sección "Feedback de uso real — earpi, actualización US1"). Uno
+  verificado en vivo, más a fondo que el reporte original: earpi sospechaba que el cwd del Bash tool
+  se reseteaba a veces por interleaving con otra tool; probado acá de forma aislada y determinista
+  (`cd .../backend && pwd` en una llamada, `pwd` solo en la siguiente sin ninguna otra tool en el
+  medio, repetido 3 veces) — **el cwd vuelve al working directory primario en cada llamada, siempre**,
+  no solo a veces. Agregada precaución explícita en el Paso 3, punto 5: prefijar comandos de fase que
+  dependan de un cwd específico con `cd /ruta/absoluta &&` en la misma invocación. El segundo hallazgo
+  (infra externa —OrbStack/Docker— cayéndose a mitad de fase sin aviso) se aplicó por extensión directa
+  del principio que el Paso 6 de `agent-selection` ya usa para Herdr, agregado al punto 7 del Paso 3:
+  verificar que la infra externa siga viva antes de asumir que un fallo a mitad de fase es del código.
+- **v0.4** — sin cambios de contenido en `SKILL.md`. Registrada en `TODO.md` de `agent-selection` la
+  confirmación de una tercera ronda de `FEEDBACK.md` en earpi (US2, T015-T019): el patrón de
+  delegación con contrato fijo (Paso 3, señales de `tasks.md` para agent-selection) dio resultado
+  correcto por tercera vez consecutiva (T008/T009, T015/T016) — sin fricción nueva de ejecución de
+  fase en esta ronda. El fix de polling (`herdr wait agent-status`/`herdr wait output`) que también se
+  confirmó limpio en esta ronda es de `agent-selection` v0.33, no de esta skill — ver su `CHANGELOG.md`
+  v0.34.

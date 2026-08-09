@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.32"
+  version: "0.34"
 ---
 
 ## Qué hace esta skill
@@ -111,6 +111,11 @@ más que ahorrar en modelo.
   manifiestos de Kubernetes, `Dockerfile`/`docker-compose` de producción); migraciones de base de
   datos; cualquier archivo de configuración de producción/deploy; o auth/pagos/borrado masivo de
   datos. Fuera de esa lista, tratar la pregunta 2 como "no" salvo justificación explícita.
+  **Aclaración sobre "auth" (v0.33)**: esto se refiere a tocar credenciales/infraestructura de auth
+  *real* fuera de una feature ya planificada — no a escribir el código de una feature de auth que ya
+  pasó por `speckit-plan`/`speckit-tasks` y tiene un `tasks.md` aprobado. Leído literal, la lista
+  forzaría re-confirmar tarea por tarea una feature entera de auth (ej. `001-auth-minima`), lo cual
+  contradice correr `sdd-implement` sobre un `tasks.md` ya aprobado — no es el uso que se busca.
 - **Esta lista es puro criterio de prompt, sin respaldo técnico — probado en vivo con Codex
   (`-s workspace-write`).** El sandbox del CLI protege *integridad* (no puede escribir fuera del
   proyecto: `operation not permitted` confirmado contra un archivo señuelo en `~/.ssh/`) pero **no
@@ -196,6 +201,24 @@ vacío) alcanza para someter lo que ya está tipeado, sin re-tipear nada. Al lan
 paralelo, mandar el `pane run` del prompt real a **todos** antes de leer la respuesta de cualquiera
 (mismo criterio que Blind dual-judge, punto 2 más abajo).
 
+**El campo `revision` no sirve para detectar cambios de pane — confirmado en vivo (v0.33).** Es
+tentador usar `revision` de `herdr agent get`/`agent list`/`pane get` para hacer polling manual ("leer
+de nuevo cuando suba"), pero se probó en vivo (`pane get` repetido cada pocos segundos sobre un pane
+activo, con el spinner del terminal visiblemente cambiando entre lecturas) y **`revision` se mantuvo
+exactamente igual** mientras el contenido del pane sí cambiaba — no trackea redibujados/actualizaciones
+de contenido. Para polling real, usar en cambio:
+`herdr wait agent-status <target> --status <idle|working|blocked|done|unknown> [--timeout MS]`
+(bloqueante, para esperar una transición de estado) o
+`herdr wait output <pane_id> --match <texto> [--timeout MS] [--regex]` (bloqueante, para esperar que
+aparezca un texto específico en el pane — útil cuando `agent_status` no es confiable, como con
+opencode, ver tabla más abajo). Si hace falta polling manual no bloqueante, comparar el `agent_status`
+reportado entre lecturas, no `revision`.
+
+**Gotcha de shell, no de Herdr (v0.33)**: si se escribe un script propio de polling en zsh, no usar
+`status` como nombre de variable — es una variable especial de solo lectura en zsh (alias de `$?`),
+asignarla falla con `read-only variable: status` (confirmado en vivo). Usar otro nombre (`agent_status`,
+`estado`, etc.).
+
 **Guardrails de seguridad al lanzar agentes con capacidad de escritura:**
 
 - **Por defecto, tareas de lectura/revisión** (jueces, lentes, exploración) — no de escritura. Si el
@@ -240,6 +263,15 @@ dejó de usar. El wrapper (`~/.local/share/agent-selection/restricted-bin/engram
 (`.codex/agents/safe-reviewer.toml`, `.opencode/agents/safe-reviewer.md`) quedan en el filesystem,
 dormidos, por si en algún momento se decide volver a registrar Engram en algún CLI.
 
+**Roster de CLI restringido a nivel proyecto (v0.33)**: antes de asumir que las cuatro opciones de la
+tabla de abajo están disponibles, chequear si el proyecto actual fija un roster más chico —
+`.specify/memory/constitution.md` (si el proyecto usa Spec Kit) o `CLAUDE.md` en la raíz del repo son
+los lugares naturales para esa restricción, igual que cualquier otra decisión de stack técnico del
+proyecto. Si ninguno de los dos dice nada, usar la tabla completa por default. Si el usuario restringe
+el roster verbalmente en una sesión puntual (ej. "solo opencode y codex para esto"), aplicarlo para esa
+sesión y sugerir persistirlo en uno de esos archivos si es una restricción que se espera repetir —
+hoy no hay otro mecanismo para fijarlo de forma duradera por proyecto.
+
 **Modelos fijos por CLI** (decisión del usuario, usar siempre estos — no improvisar otro modelo):
 
 | CLI | Modelo fijo | Invocación vía `pane run` | Rol por defecto |
@@ -270,7 +302,7 @@ el aislamiento del sandbox importe más que esa fricción extra, y **nunca combi
 `--dangerously-skip-permissions`**: vulnerabilidad documentada (`google-antigravity/antigravity-cli#36`)
 que deja que el modelo se auto-apruebe saltar el sandbox por completo.
 
-Nota Codex: `~/.codex/config.toml` trae `model_reasoning_effort = "xhigh"` como default global — distinto
+Nota Codex — `~/.codex/config.toml` trae `model_reasoning_effort = "xhigh"` como default global — distinto
 del `high` fijado acá. La invocación pasa **ambos** flags explícitos, `-m gpt-5.6-luna` y
 `-c model_reasoning_effort="high"` — antes solo se fijaba el reasoning effort y el modelo base quedaba
 a merced del config global (bug encontrado por revisión ciega con Codex mismo, ver changelog v0.7).
@@ -322,6 +354,12 @@ patrón se completó si no se completó.**
 1. **Timeout explícito por rol.** Todo `agent wait --status idle` lleva `--timeout` (60-120s para un
    prompt normal, más para tareas de razonamiento largas) — nunca un wait sin límite. Si se cumple el
    timeout, no seguir esperando ese pane a ciegas: pasar directo al punto 3 (degradación).
+   **Excepción confirmada en earpi (v0.33)**: si la tarea le pide al ejecutor correr comandos como
+   parte de verificar su propio trabajo (`bun test`, build, lint), 180s no alcanzó con Codex casi
+   terminado — ese tiempo se suma al de razonamiento, no lo reemplaza. Para este tipo de tarea usar
+   300-600s, o preferir `herdr wait output <target> --match <texto-de-fin-esperado>` en vez de un solo
+   wait largo por `agent_status` — permite chequear progreso real en vez de esperar a ciegas hasta el
+   límite.
 2. **Herdr puede caer a mitad de un patrón** (entre `tab create` y `pane run`, o con agentes ya
    corriendo). No hay una señal proactiva de esto — se detecta porque el siguiente comando de Herdr
    falla o no responde. Ante cualquier comando de Herdr que falle a mitad de un patrón, volver a correr
@@ -342,4 +380,4 @@ patrón se completó si no se completó.**
 
 Historial completo de versiones en `CHANGELOG.md`, en este mismo directorio de la skill — no se carga
 acá para no inflar el archivo que se lee en cada invocación. `TODO.md` queda como registro de método y
-hallazgos de la ronda de seguridad v0.20-v0.29, sin pendientes activos.
+hallazgos, sin pendientes activos (última ronda cerrada: feedback de uso real en earpi, v0.33-v0.34).

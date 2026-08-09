@@ -214,3 +214,33 @@ falta repetirla entera).
   la nota de Agy en el Paso 4: un rol de Agy con capacidad de escritura no es fire-and-forget, hay que
   sondear y aprobar cada prompt — el sandbox nativo (`--sandbox`) suma fricción *adicional* a esta,
   no es la causa. `TODO.md` actualizado: el ítem queda cerrado.
+- **v0.33** — cerrados los 5 hallazgos de `FEEDBACK.md` de earpi (sesión real corriendo
+  `sdd-implement` sobre `001-auth-minima`, T001-T010). Dos verificados en vivo, tres aplicados como
+  aclaración/mejora de diseño:
+  1. **`revision` no sirve para detectar cambios de pane — confirmado en vivo**: `pane get`/`agent get`
+     repetidos cada pocos segundos sobre un pane activo (spinner del terminal cambiando visiblemente
+     entre lecturas) mostraron `revision` exactamente igual en todas las lecturas. Documentada la
+     alternativa real en el Paso 4: `herdr wait agent-status --status ... --timeout MS` (bloqueante por
+     transición de estado) o `herdr wait output <pane_id> --match <texto> --timeout MS` (bloqueante por
+     contenido) en vez de polling manual por `revision`.
+  2. **`status` es variable read-only en zsh — confirmado en vivo** (`zsh -c 'status=5'` da
+     `read-only variable: status`, es alias de `$?`). Agregado como gotcha de shell junto a la nota de
+     polling, para futuros snippets de ejemplo.
+  3. **Timeout de 180s insuficiente cuando el ejecutor corre su propia verificación** (`bun test` en
+     T009 con Codex). Agregada excepción explícita en el Paso 6: 300-600s (o `wait output --match`) para
+     tareas donde el CLI lanzado corre comandos como parte de verificar su propio trabajo, distinto de
+     "tarea de razonamiento largo".
+  4. **Ambigüedad de "auth" en la lista de riesgo del Paso 2** — aclarado que se refiere a tocar
+     credenciales/infra de auth *real* fuera de plan, no a escribir código de una feature de auth ya
+     aprobada con `tasks.md` (la lectura literal forzaría re-confirmar tarea por tarea, contradiciendo el
+     propósito de `sdd-implement`).
+  5. **Sin mecanismo para fijar un roster de CLI restringido por proyecto** — agregada nota al Paso 4:
+     chequear `.specify/memory/constitution.md` o `CLAUDE.md` del proyecto antes de asumir las 4 CLIs
+     disponibles; si el usuario restringe verbalmente, sugerir persistirlo ahí para no repetirlo cada
+     sesión.
+  `TODO.md` actualizado: los 5 ítems de la sección "Feedback de uso real — earpi" quedan cerrados.
+- **v0.34** — sin cambios de contenido en `SKILL.md`. Registrada en `TODO.md` la confirmación de una
+  tercera ronda de `FEEDBACK.md` en earpi (US2, T015-T019): los fixes de v0.33 (esta skill) y v0.3
+  (`sdd-implement`) funcionaron limpio en un run posterior — `herdr wait agent-status`/`herdr wait
+  output` detectaron codex y opencode sin falsos timeouts, y la delegación con contrato fijo dio
+  resultado correcto por tercera vez consecutiva (T008/T009, T015/T016). Sin fricción nueva.

@@ -21,6 +21,16 @@ La otra ronda distinta (mecánica de lanzamiento multi-agente, no seguridad de E
 "Mecánica de lanzamiento multi-agente" más abajo) también quedó sin pendientes activos: el ítem de
 Agy se verificó a fondo y se cerró en v0.32.
 
+La ronda de feedback de earpi (ver sección "Feedback de uso real — earpi" más abajo) también quedó
+cerrada en v0.33: 2 de los 5 hallazgos se verificaron en vivo (`revision` de Herdr, gotcha de `status`
+en zsh), los otros 3 se aplicaron como aclaración/mejora de diseño directa a `SKILL.md`.
+
+Una segunda actualización de earpi (US1, T011-T014, ver sección "Feedback de uso real — earpi,
+actualización US1" más abajo) también quedó cerrada: los 2 hallazgos son sobre la ejecución de fases
+de `sdd-implement`, no de `agent-selection` — las correcciones se aplicaron en
+`.claude/skills/sdd-implement/SKILL.md` (v0.2→v0.3), no acá. Uno de los dos se verificó en vivo, más a
+fondo que el reporte original de earpi.
+
 - [x] **Verificado en vivo: `.claude/agents/safe-reviewer.md` (`disallowedTools`) bloquea de verdad
       `mem_save` y `Bash`.** Lanzado un subagente real con `subagent_type: safe-reviewer`, pedido
       explícito de (a) buscar y llamar cualquier tool `mem_save*` y (b) usar Bash para invocar el
@@ -139,6 +149,83 @@ son hallazgos sobre la mecánica de lanzamiento del Paso 4, no de seguridad.
       explícitamente que un rol de Agy con capacidad de escritura no es fire-and-forget, hay que
       sondear (`agent read --source visible`) y aprobar cada prompt a medida que aparece, y que el
       sandbox nativo suma fricción *adicional* a la que ya existe por default.
+
+## Feedback de uso real — earpi (v0.33, cerrado)
+
+Hallazgos de una sesión real corriendo `sdd-implement` sobre `specs/001-auth-minima` en el proyecto
+earpi (Setup + Foundational, T001-T010, 2026-08-09) — ver `FEEDBACK.md` en la raíz de ese repo. Distinto
+en naturaleza del resto de este archivo: son gaps funcionales de `sdd-implement`/`agent-selection`
+encontrados en uso real, no hallazgos de seguridad. Detalle completo de qué se aplicó en `CHANGELOG.md`
+v0.33.
+
+- [x] **Ambigüedad de "auth" en la lista de riesgo del Paso 2.** Aclarado en `SKILL.md`: se refiere a
+      tocar credenciales/infra de auth *real* fuera de plan, no a escribir código de una feature de auth
+      ya aprobada con `tasks.md` (la lectura literal forzaría re-confirmar tarea por tarea, contradiciendo
+      el propósito de `sdd-implement`).
+- [x] **`revision` no sirve para detectar cambios de pane — confirmado en vivo, no solo reportado.**
+      Repetido `herdr pane get`/`agent get` cada pocos segundos sobre un pane activo (el spinner del
+      terminal cambiaba visiblemente entre lecturas) — `revision` se mantuvo exactamente igual en todas
+      las lecturas. La sesión de earpi había reportado que siempre devolvía `0`; acá dio `2` de forma
+      constante, pero el patrón (no sube con cambios de contenido) es el mismo hallazgo. Documentada la
+      alternativa real en el Paso 4: `herdr wait agent-status --status ... --timeout MS` o
+      `herdr wait output <pane_id> --match <texto> --timeout MS`.
+- [x] **Timeout de 180s insuficiente cuando el CLI externo corre su propia verificación.** Agregada
+      excepción explícita en el Paso 6: 300-600s (o `wait output --match`) para tareas donde el ejecutor
+      corre comandos (tests, build) como parte de verificar su propio trabajo — distinto de "tarea de
+      razonamiento largo", que ya tenía cobertura ("más para tareas de razonamiento largas").
+- [x] **Gotcha de shell: `status` es variable read-only en zsh — confirmado en vivo.**
+      `zsh -c 'status=5; echo ok'` da `zsh:1: read-only variable: status`, exit 1 — es alias de `$?`.
+      Agregado como nota en el Paso 4, junto a la guía de polling.
+- [x] **No hay forma de fijar un roster de CLI restringido a nivel proyecto.** Agregada nota al Paso 4:
+      chequear `.specify/memory/constitution.md` (proyectos con Spec Kit) o `CLAUDE.md` antes de asumir
+      las 4 CLIs disponibles; restricción verbal puntual se sugiere persistir ahí si se espera repetir.
+      No es una prueba en vivo — es una convención de diseño nueva, sin mecanismo previo que reemplazar.
+
+## Feedback de uso real — earpi, actualización US1 (T011-T014) (v0.3 de sdd-implement, cerrado)
+
+Segunda ronda de `FEEDBACK.md` en earpi, sesión nativa 2026-08-09, corriendo `sdd-implement` sobre
+T011-T014 de `001-auth-minima`. Distinta de la ronda anterior en dónde aplica: son gaps de la
+*ejecución de fases* (Paso 3 de `sdd-implement`), no de la elección de ruta/CLI de `agent-selection` —
+las correcciones van en `.claude/skills/sdd-implement/SKILL.md`, ver `sdd-implement/CHANGELOG.md` v0.3.
+
+- [x] **El cwd del Bash tool no persiste entre llamadas — confirmado en vivo, más a fondo que el
+      reporte de earpi.** earpi reportó sospecha de reset ocasional (interleaving con otra tool). Acá
+      se probó de forma aislada y determinista: `cd .../earpi/backend && pwd` en una llamada, seguido
+      de `pwd` solo en la siguiente (sin ninguna otra tool en el medio) — **el cwd ya había vuelto** al
+      working directory primario de la sesión. Repetido 3 veces seguidas, mismo resultado cada vez. No
+      es "a veces por interleaving", es **cada llamada de Bash arranca en el working directory
+      primario**, sin importar qué `cd` haya corrido antes. `cd` solo sobrevive dentro de la misma
+      invocación compuesta (`cd /ruta && comando`), confirmado también en vivo. Documentado como
+      precaución operativa en `sdd-implement` Paso 3.
+- [x] **Infra externa (DB, contenedores) puede caer a mitad de una fase sin aviso — aplicado por
+      extensión de un principio ya probado, no una prueba nueva.** earpi reportó que OrbStack/Docker
+      cayó a mitad de T011 sin señal previa, detectado recién al fallar el test. `agent-selection` Paso
+      6 punto 2 ya cubre esto para Herdr ("no hay señal proactiva, se detecta porque el siguiente
+      comando falla o no responde — volver a chequear el estado antes de asumir otra cosa"). Extendido
+      el mismo principio a `sdd-implement` Paso 3 punto 7 (fallos a mitad de fase): si una fase depende
+      de infra externa corriendo, verificar que siga viva antes de asumir que el fallo es del código.
+
+## Confirmación en producción — earpi, actualización US2 (T015-T019)
+
+Tercera ronda de `FEEDBACK.md` en earpi, sesión nativa 2026-08-09, corriendo `sdd-implement` sobre
+T015-T019 de `001-auth-minima`. A diferencia de las dos rondas anteriores, no trae fricciones nuevas —
+confirma en un run posterior que los fixes de las dos rondas previas funcionan en la práctica. Sin
+cambios de contenido en `SKILL.md`, solo este registro.
+
+- [x] **Los fixes de v0.33 (`agent-selection`) y v0.3 (`sdd-implement`) funcionaron limpio.**
+      `herdr wait agent-status <target> --status idle --timeout 480000` (codex) y
+      `herdr wait output <target> --match <marcador> --regex --timeout 480000` (opencode) — el
+      reemplazo documentado para el polling por `revision`/`agent wait` a secas — detectaron a ambos
+      ejecutores sin falsos timeouts ni lecturas manuales de más. Sin fricción nueva para el patrón
+      multi-agente en esta ronda.
+- [x] **Delegación con contrato fijo, 3ª confirmación consecutiva.** T015 (opencode) y T016 (codex)
+      dieron resultado correcto al primer intento con prompts autocontenidos que incluían el contrato
+      exacto a testear — mismo patrón que ya había dado resultado limpio en T008/T009. Sin cambios: el
+      patrón ya estaba documentado, esto es evidencia adicional de que sostiene.
+- Un tercer punto de esa ronda (bug real de scoping `derive`/`onBeforeHandle` de Elysia en Direct
+  inline, detectado por un test de contrato) queda **fuera de alcance a propósito** — earpi mismo lo
+  marcó explícitamente como no hallazgo de `agent-selection`/`sdd-implement`, solo dato de proceso
+  (correr tests reales después de implementar sigue pagando). No requiere cambio acá.
 
 ## Bajo / investigar
 
