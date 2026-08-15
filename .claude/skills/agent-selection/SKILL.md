@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.34"
+  version: "0.41"
 ---
 
 ## Qué hace esta skill
@@ -27,13 +27,13 @@ observado y actualizar este archivo — no al revés.
 Correr `herdr status` **primero, siempre**, antes de evaluar nada más. Define qué opciones existen
 para el resto del análisis:
 
-- **`server.status: running`** → coordinación cruzando CLIs disponible (Claude Code, Codex, opencode,
-  Agy). Seguir con el marco completo, Paso 3 incluye las cuatro opciones.
+- **`server.status: running`** → coordinación cruzando CLIs disponible (Codex, opencode, y una segunda
+  instancia de Claude Code). Seguir con el marco completo, Paso 3 incluye las opciones.
 - **Server caído, o `herdr` no existe como comando** → sin coordinación cruzando CLIs. Solo queda el
   mecanismo nativo de subagentes de Claude Code (Task/Agent tool), que corre subagentes del mismo
   modelo/proveedor. **Avisar esta limitación explícitamente** antes de recomendar nada — no asumir
-  Herdr disponible ni proponer Codex/opencode/Agy como opción si el chequeo no confirmó que el server
-  está corriendo. Model tiering con Agy/Gemini queda descartado en este caso.
+  Herdr disponible ni proponer Codex/opencode como opción si el chequeo no confirmó que el server está
+  corriendo. Model tiering (minion barato vía opencode) queda descartado en este caso.
 
 **Regla dura: nunca iniciar el server de Herdr por cuenta propia.** Si `herdr status` muestra el
 server caído, esa es la respuesta — no correr `herdr server ...` ni ningún comando que lo levante.
@@ -43,10 +43,21 @@ Reportar el estado caído y seguir con el fallback de subagentes nativos.
 **Además del server, la sesión actual tiene que estar corriendo *dentro* de Herdr.** Que
 `server.status: running` sea cierto no alcanza — hace falta que esta misma instancia de Claude Code
 sea un agente reconocido por Herdr (lanzada como `herdr` o dentro de un pane que Herdr gestiona), si
-no, no hay `workspace_id` propio desde el cual hacer `tab create`. Confirmar con
-`herdr agent list` y verificar que aparezca esta sesión (mismo `terminal_id`/pane donde se está
-corriendo). Si el server está activo pero esta sesión no aparece ahí, tratarlo igual que "Herdr no
-disponible" para efectos del Paso 3/4 — no se puede crear tabs nuevos sin un workspace propio.
+no, no hay `workspace_id` propio desde el cual hacer `tab create`. **Desde v0.8.0 de Herdr, la forma
+oficial y más simple de confirmar esto es un chequeo de variables de entorno** (documentado en `herdr
+--skill`, probado en vivo — v0.37): `$HERDR_ENV` vale `1` dentro de un pane gestionado por Herdr, y
+`$HERDR_WORKSPACE_ID`/`$HERDR_TAB_ID`/`$HERDR_PANE_ID` ya traen los IDs propios de esta sesión sin
+necesidad de correr `agent list` y matchear `terminal_id` a mano.
+
+```bash
+test "${HERDR_ENV:-}" = 1   # si falla, no estamos dentro de un pane de Herdr
+echo "$HERDR_WORKSPACE_ID" "$HERDR_TAB_ID" "$HERDR_PANE_ID"   # IDs propios, listos para usar en el Paso 4
+```
+
+Si `$HERDR_ENV` no está seteado (o vale distinto de `1`) aunque el server esté corriendo, tratarlo
+igual que "Herdr no disponible" para efectos del Paso 3/4 — no se puede crear tabs nuevos sin un
+workspace propio. `herdr agent list` sigue siendo útil para inspeccionar qué más hay corriendo, pero ya
+no hace falta para confirmar la propia identidad de la sesión.
 
 Este chequeo no es opcional. Corre siempre, incluso si el Paso 1 termina resolviendo Direct inline y
 el resultado no se llega a usar: es un solo comando (`herdr status`), más barato que descubrir recién
@@ -111,18 +122,14 @@ más que ahorrar en modelo.
   manifiestos de Kubernetes, `Dockerfile`/`docker-compose` de producción); migraciones de base de
   datos; cualquier archivo de configuración de producción/deploy; o auth/pagos/borrado masivo de
   datos. Fuera de esa lista, tratar la pregunta 2 como "no" salvo justificación explícita.
-  **Aclaración sobre "auth" (v0.33)**: esto se refiere a tocar credenciales/infraestructura de auth
-  *real* fuera de una feature ya planificada — no a escribir el código de una feature de auth que ya
-  pasó por `speckit-plan`/`speckit-tasks` y tiene un `tasks.md` aprobado. Leído literal, la lista
-  forzaría re-confirmar tarea por tarea una feature entera de auth (ej. `001-auth-minima`), lo cual
-  contradice correr `sdd-implement` sobre un `tasks.md` ya aprobado — no es el uso que se busca.
-- **Esta lista es puro criterio de prompt, sin respaldo técnico — probado en vivo con Codex
-  (`-s workspace-write`).** El sandbox del CLI protege *integridad* (no puede escribir fuera del
-  proyecto: `operation not permitted` confirmado contra un archivo señuelo en `~/.ssh/`) pero **no
-  confidencialidad** (leer un archivo fuera del proyecto — el mismo señuelo — dio éxito, código 0). Y
-  dentro del proyecto (ej. un `.env` del propio repo) el sandbox no restringe nada, ni lectura ni
-  escritura. Esta lista solo funciona si el CLI lanzado respeta el prompt — no hay ningún mecanismo que
-  se lo impida técnicamente si decide ignorarlo.
+  **Aclaración sobre "auth"**: se refiere a tocar credenciales/infraestructura de auth *real* fuera de
+  una feature ya planificada — no a escribir el código de una feature de auth que ya tiene `tasks.md`
+  aprobado (leído literal, forzaría re-confirmar tarea por tarea una feature entera, contradiciendo
+  correr `sdd-implement` sobre un plan ya aprobado).
+- **Esta lista es puro criterio de prompt, sin respaldo técnico** — probado en vivo con Codex
+  (`-s workspace-write`): el sandbox protege *integridad* (no puede escribir fuera del proyecto) pero
+  no *confidencialidad* (leer un archivo fuera del proyecto sí funciona), y dentro del proyecto no
+  restringe nada. Solo funciona si el CLI lanzado respeta el prompt — nada lo obliga técnicamente.
 
 Si ninguna da sí → **Delegated direct alcanza** (ruta 2 del Paso 1), no hace falta patrón multi-agente.
 
@@ -133,7 +140,7 @@ Si ninguna da sí → **Delegated direct alcanza** (ruta 2 del Paso 1), no hace 
 | 1 | Orquestador + subagentes especializados | 1 líder (frontier) + N ejecutores |
 | 2 | Blind dual-judge (jueces ciegos) | 2-3 evaluadores independientes, mismo criterio, sin verse entre sí |
 | 3 | Lentes paralelas (framework 4R: Risk/Readability/Reliability/Resilience) | N evaluadores, cada uno con un criterio distinto |
-| 4 | Model tiering | Orquestador en modelo potente, ejecución mecánica en modelo barato. Fallback si Herdr no está activo: ver Paso 4 |
+| 4 | Model tiering | Orquestador en modelo potente, ejecución mecánica en modelo barato (opencode/DeepSeek V4 Flash Free — ver tabla del Paso 4). Fallback si Herdr no está activo: ver Paso 4 |
 | 5 | Aislamiento de contexto (subagente en fresh context) | Subagente nuevo, sin arrastrar el historial de la sesión actual |
 
 **Cómo operacionalizar Blind dual-judge (patrón 2) para que sea realmente ciego** (CLI/modelo de cada
@@ -142,12 +149,13 @@ juez: ver tabla del Paso 4):
 1. La instancia que corre esta skill (Claude Code) es el **orquestador/fix-agent** — nunca uno de los
    jueces. Si el objetivo a revisar lo escribió/editó esta misma sesión, un juez tiene que ser un CLI
    distinto para que la revisión sea independiente del autor.
-2. Lanzar los `tab create` + `pane run` de **ambos** jueces antes de leer la respuesta de ninguno —
-   no esperar a que termine el primero para lanzar el segundo (eso ya rompe el "sin verse entre sí" si
-   el prompt del segundo se arma citando algo del primero).
-3. Mandar el **mismo prompt, palabra por palabra**, a los dos.
-4. Leer ambas respuestas recién cuando las dos terminaron (`agent wait --status idle` en cada pane,
-   con timeout — ver Paso 6). Nunca pegarle a un juez la respuesta del otro, ni resumírsela.
+2. Lanzar los `tab create` + `agent start --kind --pane` de **ambos** jueces antes de leer la respuesta
+   de ninguno — no esperar a que termine el primero para lanzar el segundo (eso ya rompe el "sin verse
+   entre sí" si el prompt del segundo se arma citando algo del primero).
+3. Mandar el **mismo prompt, palabra por palabra**, a los dos (`agent prompt <target> "..." --wait`).
+4. Leer ambas respuestas recién cuando las dos terminaron (`agent prompt --wait` ya espera el estado
+   asentado de cada pane, con timeout — ver Paso 6). Nunca pegarle a un juez la respuesta del otro, ni
+   resumírsela.
 5. El orquestador filtra qué hallazgos son válidos (convergentes = más confianza; únicos = evaluar caso
    por caso) y aplica la corrección — un intento, no un loop de generación (ver *Surgical single-attempt
    correction* en Agent Harness Patterns).
@@ -158,66 +166,73 @@ juez: ver tabla del Paso 4):
 
 ## Paso 4 — qué CLI/modelo usar por rol
 
-Solo aplica si el Paso 0 confirmó Herdr activo. Coordinable por CLI (`herdr tab create` →
-`herdr pane run` → `herdr agent wait`/`agent read` — ver detalles y gotchas en la nota de Phyume
-"Herdr").
+Solo aplica si el Paso 0 confirmó Herdr activo. `herdr --skill` (impreso por el binario mismo) es la
+referencia autoritativa de sintaxis — correrlo si algo de acá no calza con `herdr --help`, y actualizar
+este archivo si contradice lo observado en vivo.
 
-**Glosario rápido** (términos de Herdr/terminal usados abajo): *pane* = una terminal individual;
-*pane root* = el pane a pantalla completa que ya trae un tab apenas se crea, sin necesidad de split;
-*alt-screen TUI* = una interfaz que redibuja toda la pantalla en vez de hacer scroll normal (Agy,
-algunos CLIs) — por eso a veces hace falta leer con `--source visible` (lo que se ve ahora en
-pantalla) en vez de `--source recent` (historial de scroll, que en estas interfaces puede venir vacío
-o desactualizado).
+**Glosario rápido**: *pane* = una terminal individual; *pane root* = el pane a pantalla completa que ya
+trae un tab apenas se crea; *alt-screen TUI* = interfaz que redibuja toda la pantalla en vez de hacer
+scroll normal — leer con `--source visible`, no `recent` (puede venir vacío/desactualizado en estas
+interfaces).
 
-**Secuencia exacta de lanzamiento — un tab nuevo por agente, nunca un split:**
+**Secuencia de lanzamiento — un tab nuevo por agente, nunca un split** (decisión de diseño: el skill
+oficial de Herdr recomienda por default split en el tab actual, se evaluó explícitamente y se mantiene
+esta convención — ver `TODO.md`/`CHANGELOG.md` v0.38 antes de "corregir" esto sin saber que fue a
+propósito):
 
 ```bash
 herdr tab create --workspace <ws_id> --label <nombre-agente> --no-focus
-# devuelve el pane_id del pane root del tab nuevo (ej. w9:p3) — un tab SIEMPRE trae
-# su propio pane a pantalla completa desde que se crea
-herdr pane run <pane_id_devuelto> "<comando del CLI, ej. claude>"
-# esperar unos segundos y VERIFICAR arranque real antes de mandar el prompt de la tarea —
-# ver "Verificar arranque real" abajo, y qué hacer si falla en el Paso 6.
+# .result.root_pane.pane_id → pane a pantalla completa, en su indicador de shell interactivo
+herdr agent start <nombre-agente> --kind <claude|codex|opencode|agy|...> --pane <pane_id> -- <args nativos del CLI>
 ```
 
-El agente se lanza **en el pane root que ya trae el tab nuevo** — nunca crear un pane adicional con
-`herdr pane split` para esto. `pane split` es solo para cuando hacen falta 2+ panes visibles
-*simultáneamente dentro del mismo tab*, que no es el caso al lanzar un agente nuevo.
+`agent start` bloquea hasta detectar el agente en ese pane (default 30s, `--timeout` 3000-300000ms) y
+el nombre pasado como primer argumento queda como alias direccionable de inmediato. `herdr agent` (sin
+subcomando) lista los `--kind` instalados. El pane objetivo tiene que estar en su indicador de shell
+interactivo — Herdr nunca crea, divide ni mueve layout por sí solo, por eso `tab create` va primero.
 
-**Verificar arranque real antes de esperar** (no asumir que "lanzado" = "listo"): tras `pane run`,
-leer el pane (`agent read <pane_id> --source visible`) y confirmar que muestra el banner esperado del
-CLI — no un prompt de confirmación bloqueante (hooks de Codex, boot todavía en curso de Agy). Un pane
-bloqueado en una pantalla de confirmación es indistinguible de uno "pensando" para `agent wait`, y
-puede no reportar `idle` nunca. Si no aparece el banner esperado en ~10-15s, resolver el bloqueo (ver
-gotchas por CLI en la tabla) antes de mandar el prompt real y antes de entrar a esperar — nunca mandar
-el prompt a ciegas justo después de `pane run`.
+**Que `agent start` devuelva no significa "listo para la tarea real"** — solo que Herdr reconoció algún
+estado (`idle`, `working`, o `blocked`). Revisar siempre `.result.agent.agent_status`: si da `blocked`
+(hook de confirmación de Codex, trust-prompt), resolverlo con `agent send-keys` antes de seguir.
 
-**Mandar el prompt real de la tarea una vez verificado el arranque — usar `pane run`, no `agent
-send`.** Confirmado en vivo (`herdr agent --help`): `agent send <target> <text>` **solo tipea texto,
-no presiona Enter** — el prompt queda pegado en el input box del CLI sin someterse, indistinguible de
-"trabajando" hasta que se revisa el pane. `pane run <target> "<texto>"` sí tipea y presiona Enter. Si
-el prompt ya se mandó por error con `agent send` y quedó sin enviar, `pane run <target> ""` (texto
-vacío) alcanza para someter lo que ya está tipeado, sin re-tipear nada. Al lanzar varios agentes en
-paralelo, mandar el `pane run` del prompt real a **todos** antes de leer la respuesta de cualquiera
-(mismo criterio que Blind dual-judge, punto 2 más abajo).
+`agent rename <target> <name>` crea un alias direccionable de verdad (usable después como `<target>`
+en cualquier `herdr agent ...`); `pane rename`/`tab rename` solo cambian una etiqueta visual — probado
+que **no** sirven para direccionar (`get` por ese label da `not_found`). Usar `agent rename` para
+scripting, los otros dos solo para legibilidad humana al revisar la sesión.
 
-**El campo `revision` no sirve para detectar cambios de pane — confirmado en vivo (v0.33).** Es
-tentador usar `revision` de `herdr agent get`/`agent list`/`pane get` para hacer polling manual ("leer
-de nuevo cuando suba"), pero se probó en vivo (`pane get` repetido cada pocos segundos sobre un pane
-activo, con el spinner del terminal visiblemente cambiando entre lecturas) y **`revision` se mantuvo
-exactamente igual** mientras el contenido del pane sí cambiaba — no trackea redibujados/actualizaciones
-de contenido. Para polling real, usar en cambio:
-`herdr wait agent-status <target> --status <idle|working|blocked|done|unknown> [--timeout MS]`
-(bloqueante, para esperar una transición de estado) o
-`herdr wait output <pane_id> --match <texto> [--timeout MS] [--regex]` (bloqueante, para esperar que
-aparezca un texto específico en el pane — útil cuando `agent_status` no es confiable, como con
-opencode, ver tabla más abajo). Si hace falta polling manual no bloqueante, comparar el `agent_status`
-reportado entre lecturas, no `revision`.
+`herdr notification show` no es utilizable en este entorno — probado en vivo, devuelve
+`{"shown": false, "reason": "disabled"}` sin ningún toggle en `config.toml` que lo explique (más
+probable: permiso de notificaciones del SO sin otorgar a Herdr). No depender de esto para avisar al
+usuario de un agente bloqueado.
 
-**Gotcha de shell, no de Herdr (v0.33)**: si se escribe un script propio de polling en zsh, no usar
-`status` como nombre de variable — es una variable especial de solo lectura en zsh (alias de `$?`),
-asignarla falla con `read-only variable: status` (confirmado en vivo). Usar otro nombre (`agent_status`,
-`estado`, etc.).
+**Mandar el prompt real — un solo comando, tipea + somete + espera:**
+
+```bash
+herdr agent prompt <nombre-agente> "<texto de la tarea>" --wait --timeout <ms>
+```
+
+Default de espera: primer estado asentado (`idle`/`done`/`blocked`, no hace falta `--until`). Si no hay
+cambio de ciclo de vida en 5s desde un estado no-`working`, devuelve `agent_prompt_stalled` en vez de
+colgarse — señal de que el prompt no se sometió de verdad. Al lanzar varios agentes en paralelo,
+disparar `agent prompt --wait` a **todos** antes de esperar la respuesta de cualquiera (mismo criterio
+que Blind dual-judge, punto 2 del Paso 3 más arriba).
+
+Para interactuar con la UI de un agente ya corriendo (aprobar confirmaciones, cancelar) usar `herdr
+agent send-keys <target> <tecla>` (`esc`, `enter`, `ctrl+c`) — Herdr valida la tecla y rechaza si el
+agente ya no controla el pane, más seguro que `pane run`/`pane send-keys` a ciegas. Esos comandos de
+`pane` siguen siendo la superficie correcta para procesos ordinarios no-agente (tests, builds).
+
+**Polling y espera de estado.** El campo `revision` de `agent get`/`pane get` **no sirve** para
+detectar cambios de pane (confirmado en vivo: se mantiene igual mientras el contenido del pane cambia)
+— no usarlo para polling manual. En su lugar: `herdr agent wait <target> [--until <estado>] [--timeout
+MS]` (bloqueante por transición de estado; sin `--until` usa el mismo default que `agent prompt
+--wait`) o `herdr pane wait-output <pane_id> --match <texto> [--regex] [--timeout MS]` (bloqueante por
+contenido del pane — necesario si algún CLI del roster no tiene detección de estado confiable; sin
+`--timeout` espera indefinidamente). `herdr agent explain <target> [--json]` muestra qué regla disparó un
+`agent_status` (o si cayó a un fallback) — más rápido que especular.
+
+**Gotcha de shell (no de Herdr)**: en zsh, `status` es variable read-only (alias de `$?`) — usar otro
+nombre (`agent_status`, `estado`) en scripts de polling propios.
 
 **Guardrails de seguridad al lanzar agentes con capacidad de escritura:**
 
@@ -242,65 +257,63 @@ asignarla falla con `read-only variable: status` (confirmado en vivo). Usar otro
   orquestador** (aunque venga de blind dual-judge o de cualquier patrón de verificación) — confirmar
   con el usuario antes de aplicarla. Verificación adversarial reduce el riesgo de un error lógico, pero
   no es una autorización de seguridad.
+- **Dos o más agentes con capacidad de escritura en paralelo sobre el mismo repo → aislar cada uno en
+  su propio `herdr worktree`, no lanzarlos directo sobre el mismo checkout.** Confirmado en vivo (v0.35,
+  `herdr worktree create --workspace ID --branch NAME --label TEXT`): crea un worktree de git real (no
+  simulado — visible con `git worktree list` desde el repo principal) en una workspace nueva de Herdr con
+  su propio tab/pane, en una rama propia. Probada la aislación en ambos sentidos: un archivo escrito
+  dentro del worktree no aparece en el `git status` del repo principal, y cambios sin commitear del repo
+  principal no se filtran al worktree. `herdr worktree remove --workspace ID` se niega por defecto si
+  queda algo sin commitear (`dirty_worktree_requires_force`, hay que pasar `--force`) — buen guardrail
+  para no perder trabajo del agente al limpiar. Sin esto, 2+ agentes escribiendo sobre el mismo checkout
+  compiten por los mismos archivos sin ningún guardrail técnico — solo confirmación humana, que no
+  resuelve el conflicto de merge.
 
-**Memoria compartida (Engram) — exclusiva del orquestador, no registrada en los CLIs lanzados:**
+**Memoria compartida (Engram) — exclusiva del orquestador, no registrada en los CLIs lanzados
+(decisión v0.29, revierte el diseño de v0.15-v0.28).** Ningún CLI externo (Codex/opencode/Agy) tiene a
+Engram como MCP — el orquestador hace `mem_search` antes de delegar y pasa el contexto directo en el
+prompt (modelo "push"), no "pull". Por qué: el beneficio de que cada CLI buscara memoria por su cuenta
+era marginal (el orquestador ya busca antes de delegar) frente al costo de mantener seguro ese acceso.
+Historial del diseño anterior (wrapper por `PATH`, agentes custom `safe-reviewer` de Codex/opencode) en
+`CHANGELOG.md` v0.15-v0.28 — sigue en el filesystem, dormido, por si se revierte la decisión.
 
-**Decisión (v0.29, revierte el diseño de v0.15-v0.28)**: Engram NO se registra como servidor MCP en
-ningún CLI lanzado vía Herdr (Codex/opencode/Agy). El orquestador (esta sesión) es el único punto de
-contacto con Engram — hace `mem_search` antes de lanzar cualquier rol y pasa el contexto relevante
-directo en el prompt (modelo "push"), en vez de darle a cada CLI lanzado su propia conexión MCP para
-buscar por su cuenta (modelo "pull").
-
-**Por qué**: el beneficio de que un CLI lanzado pudiera buscar memoria por su cuenta (evitar
-redescubrir contexto) era marginal — el orquestador ya hace esa búsqueda antes de delegar cualquier
-rol — y ese único beneficio había generado una ronda entera de trabajo de seguridad (wrapper por
-`PATH`, verificación de sandbox por CLI, agentes custom de Codex/opencode) para defender un acceso que
-no hacía falta dar en primer lugar. Sacarlo de raíz es más simple que seguir defendiéndolo.
-
-Historial completo del diseño anterior (wrapper, hallazgos de bypass por CLI, agentes custom
-`safe-reviewer` de Codex/opencode) en `CHANGELOG.md` v0.15-v0.28 — no se borró nada de eso, solo se
-dejó de usar. El wrapper (`~/.local/share/agent-selection/restricted-bin/engram`) y los agentes custom
-(`.codex/agents/safe-reviewer.toml`, `.opencode/agents/safe-reviewer.md`) quedan en el filesystem,
-dormidos, por si en algún momento se decide volver a registrar Engram en algún CLI.
-
-**Roster de CLI restringido a nivel proyecto (v0.33)**: antes de asumir que las cuatro opciones de la
-tabla de abajo están disponibles, chequear si el proyecto actual fija un roster más chico —
-`.specify/memory/constitution.md` (si el proyecto usa Spec Kit) o `CLAUDE.md` en la raíz del repo son
-los lugares naturales para esa restricción, igual que cualquier otra decisión de stack técnico del
-proyecto. Si ninguno de los dos dice nada, usar la tabla completa por default. Si el usuario restringe
-el roster verbalmente en una sesión puntual (ej. "solo opencode y codex para esto"), aplicarlo para esa
-sesión y sugerir persistirlo en uno de esos archivos si es una restricción que se espera repetir —
-hoy no hay otro mecanismo para fijarlo de forma duradera por proyecto.
+**Roster de CLI restringido por proyecto**: antes de asumir las 4 opciones de la tabla, chequear si el
+proyecto fija un roster más chico en `.specify/memory/constitution.md` o `CLAUDE.md`. Sin eso, usar la
+tabla completa. Restricción verbal puntual del usuario aplica solo a esa sesión, salvo que se persista
+en uno de esos archivos — hoy no hay otro mecanismo para fijarla de forma duradera por proyecto.
 
 **Modelos fijos por CLI** (decisión del usuario, usar siempre estos — no improvisar otro modelo):
 
-| CLI | Modelo fijo | Invocación vía `pane run` | Rol por defecto |
+| CLI | Modelo fijo | `--kind` + args nativos (después de `--`) | Rol por defecto |
 |---|---|---|---|
-| **Claude Code** | Sonnet 5 (default de la CLI, sin flag) | `claude` | Orquestador/líder — mejor detección de estado (`agent wait --status idle` confiable) |
-| **Codex** | gpt-5.6-luna · high | `codex -m gpt-5.6-luna -c model_reasoning_effort="high" -s workspace-write` | Segunda opinión/ejecutor independiente. `-s workspace-write` limita su sandbox a escribir solo dentro del proyecto — guardrail de seguridad general, no específico de Engram (que ya no está registrado, ver más abajo). Al primer arranque puede pedir confirmación de hooks (bloquea el pane hasta resolverlo con `herdr agent send <target> "3"`) |
-| **opencode** | DeepSeek V4 Flash Free | `opencode -m opencode/deepseek-v4-flash-free` | Ejecutor independiente. `agent wait --status idle` no es confiable — sondear con `agent read` en vez de esperar a ciegas |
-| **Agy** (Antigravity) | Gemini 3.6 Flash · High | `agy --model gemini-3.6-flash-high` | Minion/ejecutor mecánico en model tiering. TUI de alt-screen — leer con `--source visible`, no `recent`. Esperar a que termine de bootear antes del prompt real. **No es fire-and-forget con capacidad de escritura** — ver nota abajo, pide confirmación por cada acción |
+| **Claude Code** | Sonnet 5 (default de la CLI, sin flag) | `--kind claude` (sin args nativos) | Por defecto, orquestador/líder (esta misma sesión) — no se lanza a sí mismo. También se puede **lanzar una segunda instancia** vía `agent start --kind claude` como ejecutor/segunda opinión de máxima confiabilidad (mismo mecanismo nativo que el orquestador, sin gotchas externos) — ver nota abajo sobre su límite de independencia como juez |
+| **Codex** | gpt-5.6-luna · high | `--kind codex -- -m gpt-5.6-luna -c model_reasoning_effort="high" -s workspace-write` | Segunda opinión/ejecutor independiente. `-s workspace-write` limita su sandbox a escribir solo dentro del proyecto — guardrail de seguridad general, no específico de Engram (que ya no está registrado, ver más arriba). Al primer arranque puede pedir confirmación de hooks/trust (bloquea el pane hasta resolverlo — ver nota Codex más abajo) |
+| **opencode** | DeepSeek V4 Flash Free | `--kind opencode -- -m opencode/deepseek-v4-flash-free` | Ejecutor independiente **y minion barato de model tiering** (patrón 4, Paso 3). **`agent wait`/`agent_status` sí son confiables** (corregido en v0.38, nota anterior desactualizada — ver nota debajo) |
 
-Nota Agy — **confirmación por acción es el comportamiento default, no algo que trae `--sandbox`**
-(corregido tras probarlo en vivo, la nota anterior decía lo contrario). Con el comando default
-(`agy --model gemini-3.6-flash-high`, **sin** `--sandbox`), cada archivo que crea/edita y cada
-comando de shell que corre dispara un prompt bloqueante ("Allow creation of this file?" / "Requesting
-permission for: `<comando>`") que hay que aprobar uno por uno con `herdr pane run <target> "1"` — con
-5 escrituras seguidas (3 archivos + 1 comando, en una prueba real) salieron 4 prompts, ninguno
-agrupado. Un rol de Agy con capacidad de escritura en un patrón multi-agente **no se puede lanzar y
-dejar corriendo sin supervisión** — hay que sondear el pane (`agent read --source visible`) y aprobar
-cada prompt a medida que aparece, igual que se hace con el hook de Codex. Además, la **primera vez**
-que Agy corre en un directorio que no vio antes pide un trust prompt único ("Do you trust the contents
-of this project?") — se aprueba igual, con `herdr pane run <target> ""` (la opción default ya es
-"Yes, I trust this folder").
+Nota Claude#2 — **como juez, da independencia de proceso/contexto, no de modelo.** Una segunda
+instancia de Claude Code corre en un contexto fresco (no ve el razonamiento de la sesión orquestadora),
+pero comparte el mismo proveedor/modelo (Sonnet 5) que el autor si el autor también es esta sesión — no
+tiene el mismo valor que Codex/opencode para blind dual-judge, donde la independencia buscada es
+justamente de sesgos de modelo. Preferir Codex/opencode cuando la independencia de modelo importa;
+reservar Claude#2 para roles donde alcanza con contexto fresco (ejecutor del patrón 1, aislamiento de
+contexto del patrón 5) o cuando se necesita la confiabilidad de detección de estado por sobre todo.
 
-Separado de esto, Agy también tiene un **sandbox nativo opcional** (`--sandbox`): da un aislamiento
-más fuerte que el `-s workspace-write` de Codex (en macOS usa `sandbox-exec` y bloquea *lectura y
-escritura* fuera del proyecto, no solo escritura — probado en vivo). No es el comando default porque
-suma fricción de confirmación *adicional* a la que ya existe por default (ver arriba) — usarlo cuando
-el aislamiento del sandbox importe más que esa fricción extra, y **nunca combinarlo con
-`--dangerously-skip-permissions`**: vulnerabilidad documentada (`google-antigravity/antigravity-cli#36`)
-que deja que el modelo se auto-apruebe saltar el sandbox por completo.
+**Agy (Antigravity) se sacó del roster activo (v0.40)** — decisión del usuario tras esta sesión de
+pruebas en vivo: su `agent_status` nunca reflejó el estado real (fallback estático confirmado en 4
+momentos distintos, incluso tras actualizar Herdr y sus manifiestos de detección), contaminando también
+`agent_start`/`agent wait`. El hallazgo completo y el historial de investigación quedan en `TODO.md`/
+`CHANGELOG.md` (v0.30-v0.39) por si se reconsidera en el futuro — no se borró nada de ahí, solo dejó de
+ser parte del roster por defecto de esta tabla.
+
+Nota opencode — **`agent_status` es confiable de verdad, autoridad de ciclo de vida real por hook**
+(corregido en v0.38, la nota anterior estaba desactualizada). Confirmado en
+`https://herdr.dev/docs/integrations/`: opencode está en el grupo "lifecycle authority" (con
+Pi/OMP/Kimi/Kilo/MastraCode), a diferencia de Claude Code/Codex ("session identity", sin autoridad
+real — aunque en la práctica su screen-manifest funciona bien igual). Probado en vivo: `agent explain` mostró `screen_detection_skip_reason:
+full_lifecycle_hook_authority` y `agent_status` siguió correctamente `idle → working → idle` en
+sincronía con el contenido real del pane. Único matiz: lag breve (<1s) entre someter el prompt y que el
+hook reporte `working` por primera vez — no afecta a llamadas bloqueantes (`agent prompt --wait`/`agent
+wait`), solo a un `agent get` suelto sin esperar justo después de someter.
 
 Nota Codex — `~/.codex/config.toml` trae `model_reasoning_effort = "xhigh"` como default global — distinto
 del `high` fijado acá. La invocación pasa **ambos** flags explícitos, `-m gpt-5.6-luna` y
@@ -316,22 +329,15 @@ costo pero sin bloquear la tarea.
 
 **Para cualquier rol de solo lectura/revisión con subagente nativo (jueces, lentes 4R, minion de model
 tiering), usar el agente custom `safe-reviewer`** (`.claude/agents/safe-reviewer.md`) en vez de
-`general-purpose` — tiene `disallowedTools` bloqueando `Bash`/`PowerShell`/`Edit`/`Write`/
-`NotebookEdit` y los tools de escritura de Engram (`mem_save`, `mem_update`, `mem_pin`, etc.), a
-diferencia del guardrail de "`mem_save` reservado al orquestador" de más abajo, que es solo texto. Este
-sí es técnico: un subagente nativo de Claude Code (Task tool) no hereda `permissions.deny` del
-`settings.json` del padre (limitación conocida y documentada de Claude Code —
-`anthropics/claude-code#25000`, `#27661`), así que la única forma real de restringirlo es el campo
-`disallowedTools`/`tools` de su propia definición de agente, no un ajuste de `settings.json`. Nota:
-`safe-reviewer` excluye `Bash` a propósito, no solo los tools MCP — un subagente con Bash disponible
-podría invocar el binario real de `engram` directo, igual que hacían los CLIs externos antes del
-wrapper. Si un rol de revisión realmente necesita correr comandos (tests, linters), no usar
-`safe-reviewer`, usar `general-purpose` y aplicar el guardrail de texto como mitigación parcial.
-Verificado en vivo (ver `TODO.md`): `mem_save` y `Bash` no aparecen en la lista de tools de un
-subagente `safe-reviewer`, ni siquiera entre las diferidas — `mem_search` sí, confirmando que el
-bloqueo es selectivo. **Alcance**: esto solo cubre subagentes nativos de Claude Code (Task tool); los
-CLIs externos vía Herdr no leen `.claude/agents/`, siguen protegidos por el wrapper/sandbox de más
-abajo, son superficies distintas.
+`general-purpose` — bloquea `Bash`/`Edit`/`Write`/`NotebookEdit` y los tools de escritura de Engram vía
+`disallowedTools`, la única forma real de restringir un subagente nativo (no hereda
+`permissions.deny` de `settings.json` — limitación conocida de Claude Code,
+`anthropics/claude-code#25000`). Excluye `Bash` a propósito, no solo tools MCP: con Bash disponible se
+podría invocar el binario real de `engram` directo. Si el rol necesita correr comandos (tests,
+linters), no usar `safe-reviewer` — usar `general-purpose` con el guardrail de texto como mitigación
+parcial. Verificado en vivo: `mem_save`/`Bash` no aparecen en la lista de tools de `safe-reviewer`, ni
+siquiera diferidas (`mem_search` sí, bloqueo selectivo). Alcance: solo cubre subagentes nativos (Task
+tool); los CLIs externos vía Herdr no leen `.claude/agents/`, son superficies distintas.
 
 ## Paso 5 — output esperado
 
@@ -351,17 +357,17 @@ Al aplicar esta skill, decir explícitamente:
 Regla general: **nunca esperar indefinidamente, nunca dejar tabs huérfanos, nunca fingir que un
 patrón se completó si no se completó.**
 
-1. **Timeout explícito por rol.** Todo `agent wait --status idle` lleva `--timeout` (60-120s para un
-   prompt normal, más para tareas de razonamiento largas) — nunca un wait sin límite. Si se cumple el
+1. **Timeout explícito por rol.** Todo `agent prompt --wait`/`agent wait` lleva `--timeout` (60-120s
+   para un prompt normal, más para tareas de razonamiento largas) — nunca un wait sin límite. Si se cumple el
    timeout, no seguir esperando ese pane a ciegas: pasar directo al punto 3 (degradación).
    **Excepción confirmada en earpi (v0.33)**: si la tarea le pide al ejecutor correr comandos como
    parte de verificar su propio trabajo (`bun test`, build, lint), 180s no alcanzó con Codex casi
    terminado — ese tiempo se suma al de razonamiento, no lo reemplaza. Para este tipo de tarea usar
-   300-600s, o preferir `herdr wait output <target> --match <texto-de-fin-esperado>` en vez de un solo
-   wait largo por `agent_status` — permite chequear progreso real en vez de esperar a ciegas hasta el
-   límite.
-2. **Herdr puede caer a mitad de un patrón** (entre `tab create` y `pane run`, o con agentes ya
-   corriendo). No hay una señal proactiva de esto — se detecta porque el siguiente comando de Herdr
+   300-600s, o preferir `herdr pane wait-output <target> --match <texto-de-fin-esperado>` en vez de un
+   solo wait largo por `agent_status` — permite chequear progreso real en vez de esperar a ciegas hasta
+   el límite.
+2. **Herdr puede caer a mitad de un patrón** (entre `tab create` y `agent start`/`agent prompt`, o con
+   agentes ya corriendo). No hay una señal proactiva de esto — se detecta porque el siguiente comando de Herdr
    falla o no responde. Ante cualquier comando de Herdr que falle a mitad de un patrón, volver a correr
    `herdr status` para confirmar si el server sigue vivo antes de asumir cualquier otra cosa.
 3. **Degradación con resultados parciales**: si algunos roles respondieron y otros no (timeout, Herdr
@@ -380,4 +386,4 @@ patrón se completó si no se completó.**
 
 Historial completo de versiones en `CHANGELOG.md`, en este mismo directorio de la skill — no se carga
 acá para no inflar el archivo que se lee en cada invocación. `TODO.md` queda como registro de método y
-hallazgos, sin pendientes activos (última ronda cerrada: feedback de uso real en earpi, v0.33-v0.34).
+hallazgos por ronda — revisar ahí el estado de pendientes activos en vez de asumirlo desde acá.

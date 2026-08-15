@@ -227,6 +227,223 @@ cambios de contenido en `SKILL.md`, solo este registro.
   marcó explícitamente como no hallazgo de `agent-selection`/`sdd-implement`, solo dato de proceso
   (correr tests reales después de implementar sigue pagando). No requiere cambio acá.
 
+## Investigación de `herdr --help` — comandos no documentados (v0.35-v0.36, cerrado)
+
+Ronda de exploración de `herdr --help` (y subcomandos) pedida por el usuario para ver qué mecanismos
+de Herdr no estaban aprovechados todavía en esta skill. Dos hallazgos probados en vivo (creando y
+limpiando tabs/panes de prueba reales, no especulación); otros candidatos (`herdr worktree`, `herdr
+notification show`, `herdr integration status`) quedaron identificados pero sin probar a fondo — ver
+más abajo.
+
+- [x] **`herdr agent start` investigado y descartado como atajo de lanzamiento.** Probado en vivo con
+      Codex real: sin `--tab`, hace split 50/50 del tab actual en vez de crear un tab nuevo. Con
+      `--tab <id>` apuntando a un tab recién creado y vacío, **igual hizo split** del pane root de ese
+      tab (confirmado con `pane layout`) en vez de usarlo directo. Conclusión: `agent start` está
+      pensado para el caso "varios agentes visibles simultáneamente en un mismo tab", no para el patrón
+      "un tab nuevo por agente" que usa esta skill — no reemplaza `tab create` → `pane run`. Aplicado en
+      `SKILL.md` Paso 4, nota junto a la secuencia de lanzamiento.
+- [x] **Confirmado con prueba real: `agent_status`/`agent wait --status` no funcionan en absoluto para
+      Agy — es un fallback estático, no detección real.** `herdr agent explain <pane_id>` sobre un pane
+      de Agy dio siempre `rule: none` / `fallback_reason: default_known_agent_idle_fallback` en los tres
+      momentos probados: (1) bloqueado en el trust prompt inicial sin resolver, (2) recién booteado y
+      genuinamente idle, (3) a mitad de una tarea real en curso (pedido de contar del 1 al 5, verificado
+      que efectivamente estaba procesando). Los tres dieron **exactamente el mismo output**, y `herdr
+      agent list` reportó `agent_status: done` en los tres casos por igual — ni siquiera distingue
+      "bloqueado esperando input" de "trabajando" de "listo". Distinto de opencode (que sí tiene
+      detección real, solo que "poco confiable" en algunos casos) — acá no hay ninguna señal detrás del
+      status, el manifest (`agy.toml`) existe pero no tiene ninguna regla que dispare nunca. Aplicado en
+      `SKILL.md`: nota nueva en la fila de Agy de la tabla de CLIs y nota extendida junto a la nota
+      existente de confirmación-por-acción — la única señal confiable para Agy sigue siendo leer el pane
+      o `wait output --match`, nunca `agent wait --status`.
+      **De paso, hallazgo secundario**: `herdr agent explain <target> [--json]` es una herramienta de
+      diagnóstico real y útil (muestra la regla exacta que disparó un status, o el motivo del fallback si
+      no disparó ninguna) — documentado como referencia rápida en el Paso 4, junto a la nota de
+      `revision`.
+- [x] **`herdr worktree create/open/remove` confirmado como respuesta real al gap de escritura
+      paralela.** Probado en vivo sobre el repo `herd`: `herdr worktree create --workspace wH --branch
+      test/herdr-worktree-check --label wt-test --no-focus` creó un worktree de git real (visible con
+      `git worktree list` desde el repo principal) en una workspace nueva de Herdr con su propio
+      tab/pane, sobre una rama propia. Aislación confirmada en ambos sentidos: un archivo escrito dentro
+      del worktree (`wt-isolation-test.txt`) no apareció en el `git status` del repo principal, y los 3
+      archivos con cambios sin commitear del repo principal (los mismos de esta ronda) no se filtraron al
+      `git status` del worktree. `herdr worktree remove --workspace ID` se negó por defecto por quedar
+      sucio (`dirty_worktree_requires_force`), hubo que pasar `--force` — buen guardrail. Limpiado del
+      todo: worktree removido, rama de prueba borrada (`git branch -D`), `git worktree list` vuelve a
+      mostrar solo el repo principal. Aplicado en `SKILL.md`: guardrail nuevo en la sección de escritura
+      del Paso 4, recomendando `herdr worktree` cuando 2+ agentes con capacidad de escritura corren en
+      paralelo sobre el mismo repo.
+- [x] **`herdr notification show` probado en vivo — no utilizable en este entorno.** Corrido con
+      `--sound none`, devolvió `{"shown": false, "reason": "disabled"}` sin ningún error. Revisado
+      `config.toml` completo — no hay ningún toggle de notificaciones ahí, la causa más probable es
+      permiso de notificaciones del SO (macOS) no otorgado a Herdr, no una config de la skill. Aplicado
+      en `SKILL.md`: nota junto a la de `agent rename` avisando que no depender de este mecanismo sin
+      confirmar antes que las notificaciones del sistema estén habilitadas.
+- [x] **`agent rename` vs `pane rename` vs `tab rename` — diferencia real confirmada en vivo, probada
+      sobre el pane de esta misma sesión y revertida sin dejar rastro.** Solo `agent rename <target>
+      <name>` crea un alias direccionable — después de renombrar, `herdr agent get <name>` resolvió
+      igual que por `pane_id`. `pane rename <pane_id> <label>` y `tab rename <tab_id> <label>` solo
+      cambian una etiqueta visual: probado que `agent get`/`pane get`/`tab get` por ese label fallan con
+      `not_found` en los dos casos, siguen necesitando el id real. Revertido con `agent rename --clear`,
+      `pane rename --clear` y `tab rename <id> 1` (label numérico default) — estado final idéntico al
+      baseline (verificado con `agent get`/`pane get`/`tab get` antes/después). Aplicado en `SKILL.md`
+      junto a la nota de `agent start`.
+
+## Pendiente: reintentar detección de Agy vía `herdr server update-agent-manifests` (v0.37-v0.38, cerrado)
+
+Hallazgo de lectura de doc, no de prueba en vivo — pedido por el usuario como "anotalo, luego lo
+pruebas". `https://herdr.dev/docs/agents/` (sección "Detection manifests" / "Blocked state") confirma
+con fuente oficial lo que ya se había probado empíricamente con Agy (`TODO.md`, ronda v0.35-v0.36):
+
+> "Blocked detection is deliberately strict for screen-manifest agents. Herdr only marks `blocked` when
+> the live bottom-buffer snapshot matches known visible approval, question, or permission UI. If no rule
+> matches for a known agent, Herdr falls back to `idle`."
+
+La tabla "Supported agents" de esa misma página confirma que **Agy es agente "screen manifest" puro**
+(sin lifecycle hooks) — a diferencia de OpenCode/Pi/OMP/Kimi/Kilo/MastraCode, que sí tienen "state and
+session" completo. Esto encaja con lo ya confirmado: `rule: none` /
+`fallback_reason: default_known_agent_idle_fallback` en los tres estados probados (bloqueado en trust
+prompt, idle real, trabajando). No cambia la conclusión práctica (para Agy, nunca confiar en
+`agent_status`/`agent wait --status`), pero explica que es un límite conocido del mecanismo de
+manifiestos, no un bug sin explicación.
+
+**Lo nuevo, sin probar todavía**: la misma página documenta dos comandos que podrían mejorar esto, no
+solo explicarlo:
+- `herdr server update-agent-manifests` — trae actualizaciones remotas de manifiestos de detección; el
+  manifiesto de Agy visto en vivo (`agy.toml 2026.06.24.1`) podría estar desactualizado respecto al que
+  ofrece `herdr.dev` ahora.
+- Override local en `~/.config/herdr/agent-detection/agy.toml` — "Local overrides always win"; si el
+  manifiesto remoto sigue sin cubrir la pantalla de confirmación/trust-prompt de Agy, se podría escribir
+  una regla propia.
+
+- [x] **Cerrado en v0.38 — probado en vivo, `update-agent-manifests` NO arregla la detección de Agy.**
+      De paso se actualizó Herdr entero de 0.7.4 a 0.8.0 (ver sección siguiente), lo que reinició el
+      server y permitió correr `herdr server update-agent-manifests` de verdad. Resultado: `agy` ya
+      figuraba `current` (`2026.06.24.1`, mismo que antes) — no era un problema de caché desactualizada,
+      el manifiesto remoto simplemente no tiene ninguna regla para el trust-prompt/confirmación de Agy.
+      Repetida la prueba con Agy relanzado desde cero en un directorio nuevo (vía el `agent start
+      --kind agy --pane` nuevo de 0.8.0): mismo resultado que en v0.35-v0.36 (`rule: none`,
+      `fallback_reason: default_known_agent_idle_fallback`), y **encima el propio `agent start` devolvió
+      `agent_status: idle`/`interactive_ready: true` mientras Agy seguía en el trust prompt sin
+      resolver** (confirmado leyendo el pane). `agent wait --until blocked` dio timeout siempre, nunca
+      lo detectó. Sigue sin probar el override local (`~/.config/herdr/agent-detection/agy.toml`) — se
+      deja como candidato de una ronda futura si se necesita cerrar esto del todo, pero ya no es
+      prioritario: la skill documenta bien el workaround (leer el pane, nunca confiar en
+      `agent_status`/`agent wait`/el retorno de `agent start` para Agy).
+
+## Actualización de Herdr 0.7.4 → 0.8.0 y superficie de comandos nueva (v0.38, cerrado)
+
+Pedido explícito del usuario tras leer `https://herdr.dev/docs/agent-automation/` (que documentaba
+`--kind`, `agent prompt`, `agent send-keys`, `pane wait-output` — comandos que la versión instalada
+0.7.4 no reconocía, confirmado probándolos en vivo antes de actualizar). Actualización hecha con
+`brew upgrade herdr` (0.7.4 → 0.8.0, bottled) + reinicio del server (confirmado por el usuario, no por
+esta sesión — `herdr update --handoff` está deshabilitado para instalaciones vía Homebrew, pide
+`brew upgrade` en su lugar). Verificado post-reinicio: `herdr status` da `client.version: 0.8.0`,
+`server.version: 0.8.0`, `compatible: yes` — la sesión de esta skill siguió viva sin cortes.
+
+- [x] **`herdr --skill` es la referencia oficial y autoritativa, embebida en el binario mismo.**
+      Descubierto vía `--help` (nuevo flag `--skill`, "Print the agent skill file and exit"). Trae
+      instrucciones completas versionadas junto con el CLI instalado — más confiable que la doc web para
+      la sintaxis exacta. Recomendación para rondas futuras: correr `herdr --skill` primero en vez de
+      reconstruir la sintaxis a mano con `--help` + prueba y error.
+- [x] **`$HERDR_ENV`/`$HERDR_WORKSPACE_ID`/`$HERDR_TAB_ID`/`$HERDR_PANE_ID` — mecanismo oficial y más
+      simple para el chequeo del Paso 0.** Confirmado en vivo: `$HERDR_ENV=1` dentro del pane de esta
+      sesión, con los 3 IDs ya seteados. Reemplaza el `agent list` + matchear `terminal_id` a mano que
+      usaba el Paso 0 hasta ahora. Aplicado en `SKILL.md`.
+- [x] **`agent start --kind <cli> --pane <pane_id> -- <args>` (nuevo en 0.8.0) sí reemplaza la
+      secuencia vieja — a diferencia de lo concluido en v0.35 contra 0.7.0.** Probado en vivo con Codex
+      real: `tab create` (pane root vacío) → `agent start reviewer-test --kind codex --pane <root_pane>
+      -- -m gpt-5.6-luna -c model_reasoning_effort="high" -s workspace-write` — confirmado con
+      `pane layout` que **no hizo split** (un solo pane en el tab), y bloqueó hasta detectar el estado
+      real (`blocked`, por el trust-prompt de Codex). Con `agent send-keys reviewer-test enter` se
+      resolvió el prompt, y `agent prompt reviewer-test "Cuenta del 1 al 5..." --wait --timeout 60000`
+      sometió la tarea real y esperó su cierre en un solo comando (2.5s), confirmado leyendo la
+      respuesta real con `agent read`. **Importante**: el retorno de `agent start` solo confirma que
+      Herdr reconoció *algún* estado (incluyendo `blocked`), no que esté listo para la tarea real — hay
+      que revisar `agent_status` de la respuesta antes de mandar el prompt.
+- [x] **Para Agy específicamente, `agent start` no es confiable ni con 0.8.0** — ver hallazgo cerrado
+      arriba (`update-agent-manifests`). Documentado explícitamente en `SKILL.md`.
+- [x] **`agent prompt <target> "<texto>" --wait --timeout MS` reemplaza `pane run` + espera manual.**
+      Probado en vivo (ver punto anterior) — atómico, con detección de stall (`agent_prompt_stalled` si
+      no hay cambio de ciclo de vida en 5s desde un estado no-`working`).
+- [x] **`agent send-keys <target> <tecla>` reemplaza `pane run <target> "1"` para aprobar prompts de
+      confirmación de CLIs (Agy, hooks de Codex).** Probado en vivo con Codex (`enter` resolvió el
+      trust-prompt). Más seguro que `pane run`/`pane send-keys` a ciegas: Herdr valida la tecla y
+      rechaza si el agente ya no controla el pane.
+- [x] **Decisión de diseño explícita del usuario**: mantener la convención "un tab nuevo por agente,
+      nunca split" — el skill oficial de Herdr recomienda por default lo contrario (split en el tab
+      actual, sin crear tabs nuevos salvo pedido explícito). Se preguntó directamente y el usuario eligió
+      mantener la convención existente de esta skill. `SKILL.md` sigue usando `tab create` (pane root
+      vacío) antes de `agent start --pane`, nunca `pane split`.
+      **Registrado explícitamente para que una ronda futura no "corrija" esto sin saber que fue una
+      decisión consciente, no un descuido.**
+- [x] **Comandos de espera renombrados en 0.8.0**: `herdr wait agent-status`/`herdr wait output`
+      (nivel top, `--status`) pasan a `herdr agent wait` (`--until`, repetible, default
+      `idle`/`done`/`blocked` sin necesidad de pasarlo) y `herdr pane wait-output` (mismo rol que el
+      viejo `wait output`, ahora bajo `pane`). `agent send` (solo tipeaba, no sometía) ya no existe como
+      tal, reemplazado por `agent prompt`/`agent send-keys`. Todo aplicado en `SKILL.md`, con nota
+      explícita de fallback a la sintaxis vieja si algún día el server vuelve a estar en <0.8.0.
+- [x] **`herdr update --handoff` no sirve para instalaciones vía Homebrew** — probado en vivo, devuelve
+      `self-update is disabled for Homebrew installs; run 'brew update && brew upgrade herdr'`. No hay
+      un comando de "reiniciar el server con handoff" separado para este caso — solo `herdr server
+      stop` (corte duro) o que el usuario lo reinicie manualmente. El usuario optó por reiniciarlo él
+      mismo fuera de esta sesión.
+
+## Lectura de `https://herdr.dev/docs/integrations/` y corrección de opencode (v0.39)
+
+Pedido del usuario: analizar esa página antes de decidir si valía la pena reprobar la confiabilidad de
+`agent_status` en opencode (nuestra nota decía "no es confiable", pero la página oficial clasifica a
+opencode en el grupo "lifecycle authority" — hooks reales — junto a Pi/OMP/Kimi/Kilo/MastraCode, a
+diferencia de Claude Code/Codex/Agy que solo tienen "session identity"). Se pidió probarlo en vivo antes
+de tocar nada.
+
+- [x] **Confirmado en vivo: la nota de opencode estaba desactualizada — sí tiene detección de estado
+      real y confiable.** Lanzado opencode real (`agent start --kind opencode --pane <root_pane> --
+      -m opencode/deepseek-v4-flash-free`), confirmado `interactive_ready` genuino con `agent read`.
+      Mandada una tarea real con `agent prompt` (sin `--wait`, a propósito, para poder sondear el estado
+      a mitad de camino): `agent_status` pasó correctamente de `idle` a `working` mientras el pane
+      mostraba el spinner "Thinking" generando texto de verdad, y `herdr agent explain` mostró
+      `screen_detection_skip_reason: full_lifecycle_hook_authority` — confirma que Herdr ni siquiera usa
+      el screen-manifest acá, tiene autoridad de hook real. Al terminar la tarea (14.0s reportados por el
+      propio opencode), `agent_status` volvió a `idle` — verificado leyendo la respuesta completa en el
+      pane, coincide con "tarea realmente terminada", a diferencia del fallback estático de Agy. Único
+      matiz real: hay un lag breve (bajo 1s) entre someter el prompt y que el hook reporte `working` por
+      primera vez — no afecta a llamadas bloqueantes (`agent prompt --wait`/`agent wait`), solo a un
+      `agent get` suelto sin esperar justo después de someter.
+      Aplicado en `SKILL.md`: corregida la fila de opencode en la tabla de CLIs y la nota de la sección
+      de polling que lo mencionaba como ejemplo de detección poco confiable (ahora solo queda Agy ahí).
+- [x] **De paso, la página confirmó y explicó por qué Claude Code/Codex funcionan bien pese a estar en
+      "session identity" (sin hooks reales) — no hace falta acción, es contexto que ya encajaba con lo
+      observado.** Confirma que la fiabilidad real depende de si el manifiesto de screen-detection de
+      cada CLI matchea su pantalla, no de la categoría oficial por sí sola — Agy también es "session
+      identity" y ahí sí falla (ver hallazgo cerrado en la sección anterior).
+- [ ] Sin probar: `herdr integration install antigravity-cli` (nombre correcto de la integración de Agy,
+      no `agy`) — según la doc solo da restauración de sesión (`agy --conversation <id>`), no
+      arreglaría la detección de estado (Agy sigue en "session identity", no "lifecycle authority"). Baja
+      prioridad, no cierra el problema ya documentado.
+
+## Roster de CLI: Agy sale, segunda instancia de Claude Code entra (v0.41)
+
+Decisión explícita del usuario, motivada directamente por los hallazgos de esta misma sesión (rondas
+v0.35-v0.39): la detección de estado de Agy nunca funcionó de verdad (fallback estático confirmado 4
+veces, incluso tras actualizar Herdr a 0.8.0 y sus manifiestos), al punto de contaminar `agent_start` y
+`agent wait`. Se preguntó explícitamente qué rol cubriría el reemplazo antes de tocar nada, dado que
+Sonnet 5 no es un modelo barato (mismo que ya usa el orquestador) — el usuario eligió la opción
+recomendada.
+
+- [x] **Agy sacada del roster activo de `SKILL.md`** (tabla de "Modelos fijos por CLI" y las notas
+      operativas asociadas). El hallazgo completo de por qué (detección rota) sigue documentado arriba
+      en este archivo y en `CHANGELOG.md` v0.30-v0.39 — no se borró nada, solo dejó de ser parte del
+      roster por defecto.
+- [x] **Claude Code agregado como cuarta opción lanzable** (`agent start --kind claude`), distinta de
+      su rol implícito de orquestador (esta misma sesión). Documentado un matiz nuevo: como juez da
+      independencia de *proceso/contexto* (contexto fresco), no de *modelo* (mismo proveedor que el
+      autor si el autor también es Claude Code) — preferir Codex/opencode para blind dual-judge donde
+      la independencia de modelo es el punto; reservar Claude#2 para ejecutor del patrón 1 o
+      aislamiento de contexto del patrón 5.
+- [x] **opencode pasa a ser el minion barato de model tiering** (patrón 4, Paso 3) en el lugar que
+      dejaba Agy — decisión consistente con el hallazgo ya cerrado de que opencode tiene detección de
+      estado confiable de verdad (autoridad de hook real) y corre gratis (DeepSeek V4 Flash Free).
+
 ## Bajo / investigar
 
 - [x] **Investigado (sin poder confirmar del todo): no se encontró evidencia de que gentle-ai haya
