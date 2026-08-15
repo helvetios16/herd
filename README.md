@@ -28,7 +28,8 @@ Ciclo SDD completo de este repo: `sdd-propose` → `speckit-specify` → `specki
 ## agent-selection
 
 Skill experimental que evalúa si una tarea requiere un solo agente o un patrón multi-agente coordinado
-vía [Herdr](https://herdr.dev), y qué CLI/modelo asignar a cada rol (Claude Code, Codex, opencode, Agy).
+vía [Herdr](https://herdr.dev), y qué CLI/modelo asignar a cada rol (Claude Code —incluida una segunda
+instancia como ejecutor/juez—, Codex, opencode).
 
 - Uso y criterios: [`SKILL.md`](.claude/skills/agent-selection/SKILL.md)
 - Historial de versiones: [`CHANGELOG.md`](.claude/skills/agent-selection/CHANGELOG.md)
