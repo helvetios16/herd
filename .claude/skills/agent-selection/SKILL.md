@@ -7,7 +7,7 @@ description: >
   mecanismo), o al elegir qué CLI/modelo usar para un subagente.
 metadata:
   status: experimental
-  version: "0.41"
+  version: "0.44"
 ---
 
 ## Qué hace esta skill
@@ -18,9 +18,10 @@ o qué patrón multi-agente + qué CLI/modelo por rol.
 
 **Fuentes externas que este archivo asume consistentes, pero no versiona ni puede verificar desde
 acá**: `docs/trigger-rules.md` de [gentle-ai](https://github.com/Gentleman-Programming/gentle-ai)
-(Paso 1), y las notas de Phyume "Herdr" (Paso 4) y "Agent Harness Patterns" (Paso 3). Si algo de este
-archivo contradice lo que se observa en vivo (banner de un CLI, `herdr --help`, etc.), confiar en lo
-observado y actualizar este archivo — no al revés.
+(Paso 1), la skill `herdr` (`.claude/skills/herdr/SKILL.md`, Paso 4 — ver nota abajo) y las notas de
+Phyume "Herdr" (Paso 4) y "Agent Harness Patterns" (Paso 3). Si algo de este archivo contradice lo que
+se observa en vivo (banner de un CLI, `herdr --help`, etc.), confiar en lo observado y actualizar este
+archivo — no al revés.
 
 ## Paso 0 — chequear Herdr (obligatorio, antes de cualquier otra cosa)
 
@@ -166,9 +167,14 @@ juez: ver tabla del Paso 4):
 
 ## Paso 4 — qué CLI/modelo usar por rol
 
-Solo aplica si el Paso 0 confirmó Herdr activo. `herdr --skill` (impreso por el binario mismo) es la
-referencia autoritativa de sintaxis — correrlo si algo de acá no calza con `herdr --help`, y actualizar
-este archivo si contradice lo observado en vivo.
+Solo aplica si el Paso 0 confirmó Herdr activo. La skill `herdr` (`.claude/skills/herdr/SKILL.md`, en
+este mismo repo) es una copia verbatim de `herdr --skill` y la referencia autoritativa de sintaxis —
+`metadata.captured_from_herdr_version` en su frontmatter dice contra qué versión se generó, pero el
+archivo no se auto-actualiza. Si algo de acá no calza con lo que hace Herdr en vivo, o el
+`herdr status` del Paso 0 muestra una versión distinta a la de ese metadata, correr
+`.claude/skills/herdr/regenerate.sh` (regenera el archivo capturando `herdr --skill` y `herdr
+--version` en vivo, no a mano) antes de asumir que el archivo local está mal, y actualizar este
+archivo si contradice lo observado en vivo.
 
 **Glosario rápido**: *pane* = una terminal individual; *pane root* = el pane a pantalla completa que ya
 trae un tab apenas se crea; *alt-screen TUI* = interfaz que redibuja toda la pantalla en vez de hacer
@@ -193,7 +199,10 @@ interactivo — Herdr nunca crea, divide ni mueve layout por sí solo, por eso `
 
 **Que `agent start` devuelva no significa "listo para la tarea real"** — solo que Herdr reconoció algún
 estado (`idle`, `working`, o `blocked`). Revisar siempre `.result.agent.agent_status`: si da `blocked`
-(hook de confirmación de Codex, trust-prompt), resolverlo con `agent send-keys` antes de seguir.
+(hook de confirmación de Codex, trust-prompt, o el prompt nativo de confirmación de Claude Code —
+`Enter to confirm · Esc to cancel`, que hasta Herdr 0.8.1 se reportaba por error como `idle`, corregido
+en 0.8.2 — relevante para Claude#2 como juez, ver tabla más abajo), resolverlo con `agent send-keys`
+antes de seguir.
 
 `agent rename <target> <name>` crea un alias direccionable de verdad (usable después como `<target>`
 en cualquier `herdr agent ...`); `pane rename`/`tab rename` solo cambian una etiqueta visual — probado
@@ -220,7 +229,9 @@ que Blind dual-judge, punto 2 del Paso 3 más arriba).
 Para interactuar con la UI de un agente ya corriendo (aprobar confirmaciones, cancelar) usar `herdr
 agent send-keys <target> <tecla>` (`esc`, `enter`, `ctrl+c`) — Herdr valida la tecla y rechaza si el
 agente ya no controla el pane, más seguro que `pane run`/`pane send-keys` a ciegas. Esos comandos de
-`pane` siguen siendo la superficie correcta para procesos ordinarios no-agente (tests, builds).
+`pane` siguen siendo la superficie correcta para procesos ordinarios no-agente (tests, builds). Desde
+Herdr 0.8.2, `send-keys ... shift+tab` preserva el Shift al enviarse (antes se perdía) — sirve para
+ciclar el modo de permisos de un agente (ej. Claude Code) por comando, sin intervención manual.
 
 **Polling y espera de estado.** El campo `revision` de `agent get`/`pane get` **no sirve** para
 detectar cambios de pane (confirmado en vivo: se mantiene igual mientras el contenido del pane cambia)

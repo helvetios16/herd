@@ -444,6 +444,60 @@ recomendada.
       dejaba Agy — decisión consistente con el hallazgo ya cerrado de que opencode tiene detección de
       estado confiable de verdad (autoridad de hook real) y corre gratis (DeepSeek V4 Flash Free).
 
+## Actualización de Herdr 0.8.0 → 0.8.2 y hallazgos del CHANGELOG.md oficial (v0.42)
+
+Pedido explícito del usuario: primero actualizar Herdr, después investigar el 0.8.2 en la web y aplicar
+lo relevante a `SKILL.md`.
+
+- [x] **Actualización real, mismo procedimiento que v0.38.** `brew upgrade herdr` (0.8.0 → 0.8.2,
+      bottled). `herdr status` antes de reiniciar mostró `client.version: 0.8.2`, `server.version: 0.8.0`,
+      `compatible: no`, `restart_needed: yes` — el binario del server en memoria no se actualiza solo con
+      el `brew upgrade`. Probado `herdr update --handoff`: mismo resultado que en v0.38, deshabilitado
+      para instalaciones Homebrew (`self-update is disabled for Homebrew installs`). Preguntado
+      explícitamente al usuario si reiniciaba esta sesión el server (`herdr --handoff`) o lo hacía él
+      mismo, dado que el server es compartido con otros tabs/panes — el usuario lo hizo manualmente.
+      Confirmado después: `herdr status` → `client.version`/`server.version: 0.8.2`, `compatible: yes`,
+      `restart_needed: no`.
+- [x] **Fetch de la página de releases de GitHub dio contenido no confiable — corregido leyendo el
+      `CHANGELOG.md` crudo.** `WebFetch` contra `github.com/herdrdev/herdr/releases/tag/v0.8.2` devolvió
+      una fecha imposible (2024, cuando la versión y el resto del historial ubican el release en
+      2026-08-19) y features que no aparecen en ningún otro lado (mención de integración nativa Windows
+      para "Hermes Agent"/"MastraCode" sin más contexto) — indicio de resumen alucinado por el modelo
+      chico que procesa el fetch, no de la página en sí. Recuperado leyendo
+      `raw.githubusercontent.com/herdrdev/herdr/master/CHANGELOG.md` directo con `curl` (texto crudo, sin
+      pasar por resumen de modelo) — ahí sí el release `[0.8.2] - 2026-08-19` tiene números de issue reales
+      y créditos de contribuidores consistentes con el resto del changelog (formato `(#NNNN, thanks
+      @usuario)`), mucho más confiable. **Lección para rondas futuras**: para un changelog o release
+      notes de una herramienta que este archivo cita como fuente, preferir el archivo crudo (`raw.
+      githubusercontent.com`, `git show`) antes que dejar que `WebFetch` lo resuma — más barato de
+      verificar y evita este tipo de alucinación silenciosa.
+- [x] **Dos hallazgos con impacto directo en `SKILL.md`, aplicados sin prueba en vivo propia** (a
+      diferencia de v0.38/v0.39 — acá se confía en el número de issue del changelog oficial, no se
+      repitió la prueba adversarial real):
+      1. Prompts de confirmación nativos de Claude Code (`Enter to confirm · Esc to cancel`) ahora
+         reportan `blocked` en vez de `idle` (issue #2268) — agregado como ejemplo en la nota de
+         `agent start` del Paso 4, junto al de Codex. Relevante porque Claude#2 (agregada como juez en
+         v0.41) puede toparse con este mismo tipo de prompt.
+      2. `send-keys ... shift+tab` preserva el Shift al enviarse (antes se perdía, issue #1561) — permite
+         ciclar el modo de permisos de un agente por comando. Agregado como nota corta en el Paso 4.
+- [ ] **Pendiente de verificación en vivo, baja prioridad**: confirmar el fix de Claude Code (#2268) con
+      una prueba real — lanzar Claude#2 vía `agent start --kind claude`, forzar un prompt de
+      confirmación real, y leer `.result.agent.agent_status` para comprobar que da `blocked` y no
+      `idle`. No bloqueante: el hallazgo viene de un changelog oficial con número de issue, no de
+      especulación, pero esta skill privilegia prueba real sobre fuente externa cuando hay tensión
+      (ver preámbulo de `SKILL.md`).
+- [x] **Otros dos hallazgos del changelog evaluados y descartados para `SKILL.md`** (no invalidan ni
+      corrigen ninguna guía activa del archivo):
+      - Fix de carrera en `agent start` esperando que el pane/shell y el primer prompt del agente estén
+        listos antes de reportar éxito (issues #2410, #2537, #2773, #2774) — la guía actual de
+        `SKILL.md` ("que devuelva no significa listo para la tarea real, revisar `agent_status`") ya
+        cubre este caso independientemente de si la carrera existía o no; no había ningún workaround
+        documentado acá que este fix vuelva obsoleto.
+      - OpenCode ahora trackea su propia conversación raíz para restore nativo sin heredar actividad de
+        clientes adjuntos (issue #2450) — es sobre *restore de sesión*, un tema distinto de la nota ya
+        existente sobre confiabilidad de *detección de estado* (`agent_status`) de opencode, que sigue
+        vigente desde v0.38 sin cambios.
+
 ## Bajo / investigar
 
 - [x] **Investigado (sin poder confirmar del todo): no se encontró evidencia de que gentle-ai haya
