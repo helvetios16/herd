@@ -1,20 +1,20 @@
 # Changelog — sdd-verify
 
-- **v0.1** — primera versión. Cierra el gap de "review/verify con evidencia" del roadmap SDD que
-  Spec Kit no cubre nativamente (`speckit-converge` solo agrega tareas faltantes, no verifica).
-  Skill invocable que corre **después** de `/speckit-implement` o `/sdd-implement`: lee `spec.md`
-  de la feature, compila cada Acceptance Scenario (referencia "US-N / Acceptance Scenario M") y cada
-  Success Criterion (`SC-00N`), y por cada uno ejecuta una **verificación puntual** contra el estado
-  real del repo (comando puntual, `test -f`, lectura de archivo, o reutilización de evidencia ya
-  existente de la implementación) — misma actitud adversarial del Principio I de la constitución.
-  Ningún criterio puede marcar `pass` sin citar en la misma fila del `verify-report.md` la evidencia
-  real usada (FR-004); si no hay forma objetiva de verificar, se marca `no verificable` con el
-  motivo en `detalle`, nunca se fuerza a `pass`/`fail` sin base (FR-003, Acceptance Scenario 3 de la
-  User Story 2). Si la feature no tiene `tasks.md` con al menos una tarea `[X]`, reporta "nada que
-  verificar todavía" y **no** genera `verify-report.md` — evita veredictos fabricados (Edge Case de
-  `spec.md`). No corre suite de tests propia: reutiliza la evidencia existente o corre
-  verificaciones puntuales ella misma (Assumptions de `spec.md`). El único output es un archivo
-  nuevo en la carpeta de la feature (`verify-report.md`, una fila por criterio según el
-  `data-model.md`); el formato de `spec.md`/`plan.md`/`tasks.md` no cambia, así que
-  `speckit-converge`/`speckit-analyze` siguen funcionando igual después. Consumidor natural:
-  `sdd-archive`, que se rehúsa a archivar si queda algún `fail`/`no verificable`.
+- **v0.1** — first version. Closes the SDD roadmap gap of "review/verify with evidence" that
+  Spec Kit does not cover natively (`speckit-converge` only adds missing tasks; it does not verify).
+  Invocable skill that runs **after** `/speckit-implement` or `/sdd-implement`: reads the feature's
+  `spec.md`, compiles each Acceptance Scenario (reference "US-N / Acceptance Scenario M") and each
+  Success Criterion (`SC-00N`), and for each one performs a **targeted verification** against the
+  repo's actual state (specific command, `test -f`, file reading, or reuse of already existing
+  implementation evidence) — the same adversarial attitude as Principle I of the constitution.
+  No criterion may be marked `pass` without citing the actual evidence used in the same row of
+  `verify-report.md` (FR-004); if there is no objective way to verify it, it is marked `no verificable`
+  with the reason in `detalle`; it is never forced to `pass`/`fail` without a basis (FR-003,
+  Acceptance Scenario 3 of User Story 2). If the feature does not have `tasks.md` with at least one
+  `[X]` task, it reports "nothing to verify yet" and **does not** generate `verify-report.md` — it
+  avoids fabricated verdicts (Edge Case of `spec.md`). It does not run its own test suite: it reuses
+  existing evidence or runs targeted verifications itself (Assumptions of `spec.md`). The only
+  output is a new file in the feature folder (`verify-report.md`, one row per criterion according to
+  `data-model.md`); the format of `spec.md`/`plan.md`/`tasks.md` does not change, so
+  `speckit-converge`/`speckit-analyze` continue working the same way afterward. Natural consumer:
+  `sdd-archive`, which refuses to archive if any `fail`/`no verificable` remains.

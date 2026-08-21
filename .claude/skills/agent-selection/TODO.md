@@ -1,546 +1,539 @@
-# TODO — seguridad (agent-selection)
+# TODO — security (agent-selection)
 
-Pendientes identificados durante la ronda de pruebas reales de la barrera de escritura a Engram (ver
-`CHANGELOG.md` v0.15-v0.17 y la nota de Phyume "Herdr", sección "Restringir qué puede escribir un CLI
-lanzado"). **Estado: todos probados/investigados/aplicados** (v0.20-v0.25, ver `CHANGELOG.md`) — este
-archivo queda como registro de método y hallazgos, no como lista de pendientes activos. Si aparece un
-hallazgo nuevo, agregarlo acá con la misma metodología de prueba adversarial real, no especulación.
+Pending items identified during the real-test round of the Engram write barrier (see
+`CHANGELOG.md` v0.15-v0.17 and Phyume's "Herdr" note, section "Restricting what a launched CLI can
+write"). **Status: all tested/investigated/applied** (v0.20-v0.25, see `CHANGELOG.md`) — this file
+remains a record of method and findings, not a list of active pending items. If a new finding appears,
+add it here using the same real adversarial testing methodology, not speculation.
 
-**Nota (v0.29)**: todo el trabajo de este archivo defendía un acceso que después se decidió sacar de
-raíz — Engram ya no se registra como MCP en ningún CLI lanzado (ver `CHANGELOG.md` v0.29). Nada de lo
-de acá quedó invalidado (el wrapper y los hallazgos siguen siendo correctos), simplemente dejó de
-aplicar porque ya no hay una conexión de Engram que defender en Codex/opencode/Agy.
+**Note (v0.29)**: all the work in this file defended access that was later decided to remove at the
+root — Engram is no longer registered as MCP in any launched CLI (see `CHANGELOG.md` v0.29). None of
+this was invalidated (the wrapper and findings remain correct); it simply stopped applying because
+there is no longer an Engram connection to defend in Codex/opencode/Agy.
 
-## Estado
+## Status
 
-Sin pendientes activos de la ronda de seguridad de Engram (Crítico/Alto/Medio/Bajo abajo). El último
-ítem de esa ronda (`safe-reviewer`, v0.26) se verificó en vivo el mismo día: no hizo falta reiniciar
-la sesión después de todo — el nuevo `.claude/agents/` se detectó solo.
+No active pending items remain from the Engram security round (Critical/High/Medium/Low below). The
+last item from that round (`safe-reviewer`, v0.26) was verified live the same day: after all, it was
+not necessary to restart the session — the new `.claude/agents/` was detected automatically.
 
-La otra ronda distinta (mecánica de lanzamiento multi-agente, no seguridad de Engram — ver sección
-"Mecánica de lanzamiento multi-agente" más abajo) también quedó sin pendientes activos: el ítem de
-Agy se verificó a fondo y se cerró en v0.32.
+The other, separate round (multi-agent launch mechanics, not Engram security — see the "Multi-agent
+launch mechanics" section below) also has no active pending items: the Agy item was thoroughly
+verified and closed in v0.32.
 
-La ronda de feedback de earpi (ver sección "Feedback de uso real — earpi" más abajo) también quedó
-cerrada en v0.33: 2 de los 5 hallazgos se verificaron en vivo (`revision` de Herdr, gotcha de `status`
-en zsh), los otros 3 se aplicaron como aclaración/mejora de diseño directa a `SKILL.md`.
+The earpi feedback round (see the "Real-world usage feedback — earpi" section below) also closed in
+v0.33: 2 of the 5 findings were verified live (Herdr's `revision`, the `status` gotcha in zsh), and
+the other 3 were applied as direct clarification/design improvements to `SKILL.md`.
 
-Una segunda actualización de earpi (US1, T011-T014, ver sección "Feedback de uso real — earpi,
-actualización US1" más abajo) también quedó cerrada: los 2 hallazgos son sobre la ejecución de fases
-de `sdd-implement`, no de `agent-selection` — las correcciones se aplicaron en
-`.claude/skills/sdd-implement/SKILL.md` (v0.2→v0.3), no acá. Uno de los dos se verificó en vivo, más a
-fondo que el reporte original de earpi.
+ A second earpi update (US1, T011-T014; see the "Real-world usage feedback — earpi, US1 update"
+section below) also closed: the 2 findings concern `sdd-implement` phase execution, not
+`agent-selection` — the fixes were applied in `.claude/skills/sdd-implement/SKILL.md` (v0.2→v0.3), not
+here. One of the two was verified live, more thoroughly than earpi's original report.
 
-- [x] **Verificado en vivo: `.claude/agents/safe-reviewer.md` (`disallowedTools`) bloquea de verdad
-      `mem_save` y `Bash`.** Lanzado un subagente real con `subagent_type: safe-reviewer`, pedido
-      explícito de (a) buscar y llamar cualquier tool `mem_save*` y (b) usar Bash para invocar el
-      binario `engram` real. Resultado: **ninguna de las dos herramientas aparece en su lista de tools
-      disponibles** — ni de nivel superior ni entre las diferidas (`mem_search` sí sigue disponible,
-      confirmando que el bloqueo es selectivo, no total). Cierra el hallazgo de v0.24: un subagente
-      nativo lanzado como `safe-reviewer` ya no tiene el problema que sí tiene `general-purpose`.
-      **Alcance importante**: esto solo protege la vía de subagentes nativos de Claude Code (Task tool)
-      — no aplica a los CLIs externos (Codex/opencode/Agy) lanzados vía Herdr, que no tienen ningún
-      concepto de "agente custom de Claude Code" ni leen `.claude/agents/`; esa vía sigue asegurada por
-      el wrapper/sandbox de v0.20-v0.25, son dos superficies distintas.
+- [x] **Verified live: `.claude/agents/safe-reviewer.md` (`disallowedTools`) really blocks
+      `mem_save` and `Bash`.** A real subagent was launched with `subagent_type: safe-reviewer`, with
+      an explicit request to (a) search for and call any `mem_save*` tool and (b) use Bash to invoke the
+      real `engram` binary. Result: **neither tool appears in its list of available tools** — neither
+      at the top level nor among deferred tools (`mem_search` remains available, confirming that the
+      block is selective, not total). Closes the v0.24 finding: a native subagent launched as
+      `safe-reviewer` no longer has the problem that `general-purpose` does.
+      **Important scope**: this only protects the native Claude Code subagent path (Task tool) — it does
+      not apply to external CLIs (Codex/opencode/Agy) launched through Herdr, which have no concept of
+      a "custom Claude Code agent" and do not read `.claude/agents/`; that path remains secured by the
+      v0.20-v0.25 wrapper/sandbox. They are two separate surfaces.
 
-## Crítico
+## Critical
 
-- [x] **El wrapper vivía *dentro* del proyecto que los mismos CLIs pueden escribir** — movido a
-      `~/.local/share/agent-selection/restricted-bin/engram` (fuera del árbol de cualquier repo) y
-      actualizado el `PATH` inline del Paso 4 en `SKILL.md` en consecuencia.
-- [x] **Prueba de bypass repetida con el wrapper en la nueva ruta** — Codex lanzado de verdad vía Herdr
-      con `-s workspace-write` en `herd`, pedido explícitamente: escribir un archivo dentro del repo,
-      leer el wrapper externo, y borrarlo. Resultado: escritura dentro del repo — éxito (exit 0);
-      lectura del wrapper externo — éxito (exit 0, el sandbox no restringe lectura fuera del proyecto,
-      solo escritura); **borrado del wrapper — falló**: `rm: .../restricted-bin/engram: Operation not
-      permitted`. Confirma que la reubicación cierra el hueco: Codex puede escribir en el proyecto pero
-      no puede tocar el wrapper.
+- [x] **The wrapper lived *inside* the project that the same CLIs can write to** — moved to
+      `~/.local/share/agent-selection/restricted-bin/engram` (outside every repo tree), and the inline
+      `PATH` in Step 4 of `SKILL.md` was updated accordingly.
+- [x] **Bypass test repeated with the wrapper at the new path** — Codex genuinely launched through
+      Herdr with `-s workspace-write` in `herd`, explicitly asked to write a file inside the repo, read
+      the external wrapper, and delete it. Result: writing inside the repo — success (exit 0); reading
+      the external wrapper — success (exit 0, the sandbox does not restrict reading outside the project,
+      only writing); **deleting the wrapper — failed**: `rm: .../restricted-bin/engram: Operation not
+      permitted`. Confirms that relocation closes the gap: Codex can write in the project but cannot
+      touch the wrapper.
 
-## Alto
+## High
 
-- [x] **El guardrail de "no pegar secretos en los prompts" (Paso 4), probado de verdad.** Lanzado
-      opencode de verdad vía Herdr, mandado un prompt con un secreto de mentira (marcador único
-      `sk-FAKESECRET-9f8e7d6c5b4a3210-TESTMARKER-ZZ`). Buscado el marcador en `herdr-server.log`,
-      `herdr-client.log`, `session.json` y el resto de `~/.config/herdr/` (recursivo) — **cero
-      coincidencias**, no queda expuesto en ningún archivo persistente de Herdr con la config default.
-      Motivo confirmado en la doc (`herdr.dev/docs/session-state`): el contenido de los panes (lo que
-      incluiría cualquier secreto pegado en un prompt) solo se persiste a disco si se activa
-      `[experimental] pane_history` (**off por defecto**, no está seteado en `config.toml`), que escribe
-      todo el scroll de los panes en texto plano a `session-history.json`. **Riesgo latente para el
-      futuro**: si algún día se activa `pane_history` (para debug, por ejemplo) sin recordar esta nota,
-      cualquier secreto pegado en un prompt a un CLI lanzado queda en texto plano en disco — no hay
-      guardrail técnico contra eso, es responsabilidad de quien active la opción.
-- [x] **La lista de riesgo del Paso 2, probada de verdad con Codex** (`-s workspace-write`). Creados dos
-      señuelos con contenido falso: `~/.ssh/herd_test_decoy_key` (fuera del proyecto) y
-      `./.env.test-decoy` (dentro del repo). Pedido explícito: leer y escribir cada uno. Resultado —
-      **confirma exactamente la hipótesis de v0.21**:
-      1. `cat ~/.ssh/herd_test_decoy_key` (leer, fuera del proyecto) — **éxito**, código 0.
-      2. `echo >> ~/.ssh/herd_test_decoy_key` (escribir, fuera del proyecto) — **falló**:
+- [x] **The "do not paste secrets into prompts" guardrail (Step 4), genuinely tested.** Real opencode
+      launched through Herdr, sent a prompt with a fake secret (unique marker
+      `sk-FAKESECRET-9f8e7d6c5b4a3210-TESTMARKER-ZZ`). Searched for the marker in `herdr-server.log`,
+      `herdr-client.log`, `session.json`, and the rest of `~/.config/herdr/` (recursively) — **zero
+      matches**; it is not exposed in any persistent Herdr file with the default config. Reason
+      confirmed in the docs (`herdr.dev/docs/session-state`): pane contents (which would include any
+      secret pasted into a prompt) are persisted to disk only if `[experimental] pane_history` is
+      enabled (**off by default**, not set in `config.toml`), which writes the panes' entire scrollback
+      as plain text to `session-history.json`. **Latent future risk**: if `pane_history` is ever enabled
+      (for debugging, for example) without remembering this note, any secret pasted into a prompt to a
+      launched CLI remains in plain text on disk — there is no technical guardrail against that; it is
+      the responsibility of whoever enables the option.
+- [x] **The Step 2 risk list, genuinely tested with Codex** (`-s workspace-write`). Two decoys with
+      fake content were created: `~/.ssh/herd_test_decoy_key` (outside the project) and
+      `./.env.test-decoy` (inside the repo). Explicitly requested: read and write each one. Result —
+      **confirms the v0.21 hypothesis exactly**:
+      1. `cat ~/.ssh/herd_test_decoy_key` (read, outside the project) — **success**, code 0.
+      2. `echo >> ~/.ssh/herd_test_decoy_key` (write, outside the project) — **failed**:
          `operation not permitted`.
-      3. `cat ./.env.test-decoy` (leer, dentro del proyecto) — éxito.
-      4. `echo >> ./.env.test-decoy` (escribir, dentro del proyecto) — **éxito** (revertido por el
-         propio Codex después, cooperativo, no por ningún mecanismo técnico).
-      **Conclusión dura**: la lista de riesgo del Paso 2 (`.ssh`, `.env`, CI/CD, infra, migraciones) no
-      tiene ningún respaldo técnico — es pura confianza en que el CLI respete el prompt. El sandbox de
-      Codex (`-s workspace-write`) protege *integridad* (no puede escribir/tocar archivos sensibles
-      fuera del proyecto) pero **no protege confidencialidad** (puede leer cualquier archivo fuera del
-      proyecto al que el usuario del SO tenga acceso, y dentro del proyecto no hay ninguna restricción,
-      ni de lectura ni de escritura). Señuelos limpiados después de la prueba, sin dejar rastro.
+      3. `cat ./.env.test-decoy` (read, inside the project) — success.
+      4. `echo >> ./.env.test-decoy` (write, inside the project) — **success** (later reverted by
+         Codex itself, cooperatively, not by any technical mechanism).
+      **Hard conclusion**: the Step 2 risk list (`.ssh`, `.env`, CI/CD, infrastructure, migrations) has
+      no technical backing — it is purely trust that the CLI will respect the prompt. Codex's sandbox
+      (`-s workspace-write`) protects *integrity* (it cannot write/touch sensitive files outside the
+      project) but **does not protect confidentiality** (it can read any file outside the project that
+      the OS user can access, and inside the project there is no restriction, either on reading or
+      writing). Decoys cleaned up after the test, leaving no trace.
 
-## Medio
+## Medium
 
-- [x] **`/tmp` queda escribible bajo `-s workspace-write`** — reconfirmado con Codex real vía Herdr
-      (v0.147.0): `echo ... > /tmp/herd-sandbox-tmp-test.txt` escribió, leyó y borró sin error, código 0.
-      No afecta a Engram (su DB no vive ahí) pero sigue siendo una vía abierta si en algún momento se
-      necesita bloquear *cualquier* escritura fuera del proyecto, no solo la de un binario puntual.
-- [x] **Investigado y probado: opencode NO tiene sandbox nativo; Agy SÍ, y es más fuerte que el de
-      Codex.**
-  - **opencode**: confirmado que no existe. Hubo un PR experimental
-    (`anomalyco/opencode#21538`, "macOS bash command sandboxing", opt-in vía `experimental.sandbox`)
-    pero **nunca se mergeó** — cerrado en mayo 2026 por inactividad. Sigue dependiendo enteramente del
-    wrapper por `PATH` y de las reglas de `Permissions` (allow/deny/ask), ambas barreras blandas.
-  - **Agy**: sí tiene (`--sandbox`), y **la skill no lo está usando** (`agy --model
-    gemini-3.6-flash-high`, sin `--sandbox`). Probado en vivo, resultado más fuerte que Codex:
-    en macOS usa `sandbox-exec` (mismo mecanismo de base que Codex) pero bloquea **lectura Y escritura**
-    fuera del proyecto — `cat` de un señuelo fuera del proyecto dio `Operation not permitted` (Codex sí
-    dejaba leer). Lectura/escritura dentro del proyecto: ambas éxito, igual que Codex.
-  - **Gotcha real al activar `--sandbox` en Agy**: introduce un prompt de confirmación interactivo antes
-    de cada comando de shell (aunque esté sandboxeado) — rompe el patrón de lanzamiento autónomo en
-    background que usa el Paso 4 (`pane run` + esperar), salvo que se responda cada prompt o se
-    seleccione "always allow" para el patrón de comando exacto. **Nunca combinar con
-    `--dangerously-skip-permissions`** — vulnerabilidad documentada
-    (`google-antigravity/antigravity-cli#36`): esa combinación deja que el modelo se auto-apruebe saltar
-    el sandbox por completo, anulando la protección. No se cambió el comando de lanzamiento default de
-    Agy en `SKILL.md` por este trade-off — documentado como opción para cuando se necesite aislamiento
-    más fuerte y se pueda tolerar la fricción de las confirmaciones.
-- [x] **Evaluado: no generalizar el patrón del wrapper a otros binarios (recomendación, no una
-      prueba).** El wrapper de Engram funciona porque el caso es angosto y estable: un solo binario, una
-      sola operación legítima a permitir (`mem_search`), superficie de flags chica y predecible — se
-      pudo enumerar y bloquear todo lo demás con confianza. `git push`, scripts de deploy, etc. no
-      comparten esas propiedades: superficie de flags mucho más grande, variación por proyecto, y un
-      wrapper mal armado da falsa sensación de seguridad (peor que no tener nada, porque hace parecer
-      resuelto algo que no lo está — confirmado en esta misma ronda que hasta el wrapper de Engram, bien
-      angosto, dependía de *dónde* vivía el archivo, no solo de su lógica interna). Mejor invertir en que
-      el guardrail de "nunca comandos destructivos sin supervisión" (Paso 4) se cumpla en la práctica —
-      confirmación humana explícita antes de lanzar cualquier agente con esa capacidad — que en wrappers
-      puntuales por binario. Si en el futuro aparece un caso concreto y angosto (no especulativo) que
-      lo amerite, evaluarlo con la misma metodología de prueba adversarial usada en este TODO.
+- [x] **`/tmp` remains writable under `-s workspace-write`** — reconfirmed with real Codex through
+      Herdr (v0.147.0): `echo ... > /tmp/herd-sandbox-tmp-test.txt` wrote, read, and deleted without
+      error, code 0. It does not affect Engram (its DB does not live there), but remains an open path if
+      at some point it becomes necessary to block *any* writing outside the project, not just that of a
+      specific binary.
+- [x] **Investigated and tested: opencode has NO native sandbox; Agy DOES, and it is stronger than
+      Codex's.**
+  - **opencode**: confirmed not to have one. There was an experimental PR
+    (`anomalyco/opencode#21538`, "macOS bash command sandboxing", opt-in via `experimental.sandbox`)
+    but it was **never merged** — closed in May 2026 due to inactivity. It continues to depend entirely
+    on the `PATH` wrapper and `Permissions` rules (allow/deny/ask), both soft barriers.
+  - **Agy**: it does have one (`--sandbox`), and **the skill is not using it** (`agy --model
+    gemini-3.6-flash-high`, without `--sandbox`). Tested live, with a stronger result than Codex: on
+    macOS it uses `sandbox-exec` (the same underlying mechanism as Codex) but blocks **both reading AND
+    writing** outside the project — `cat` of a decoy outside the project returned `Operation not
+    permitted` (Codex did allow reading). Reading/writing inside the project: both succeeded, as with
+    Codex.
+  - **Real gotcha when enabling `--sandbox` in Agy**: it introduces an interactive confirmation prompt
+    before every shell command (even when sandboxed) — it breaks the autonomous background launch
+    pattern used by Step 4 (`pane run` + wait), unless each prompt is answered or "always allow" is
+    selected for the exact command pattern. **Never combine with `--dangerously-skip-permissions`** —
+    documented vulnerability (`google-antigravity/antigravity-cli#36`): that combination lets the model
+    self-approve skipping the sandbox entirely, nullifying the protection. Agy's default launch command
+    in `SKILL.md` was not changed because of this trade-off — it is documented as an option for when
+    stronger isolation is needed and confirmation friction can be tolerated.
+- [x] **Evaluated: do not generalize the wrapper pattern to other binaries (recommendation, not a
+      test).** The Engram wrapper works because the case is narrow and stable: one binary, one legitimate
+      operation to allow (`mem_search`), and a small, predictable flag surface — everything else could be
+      enumerated and blocked confidently. `git push`, deploy scripts, etc. do not share those properties:
+      a much larger flag surface, per-project variation, and a poorly built wrapper gives a false sense
+      of security (worse than having nothing, because it makes something appear solved when it is not —
+      confirmed in this same round that even the well-narrowed Engram wrapper depended on *where* the
+      file lived, not only on its internal logic). It is better to invest in ensuring that the "never
+      run destructive commands without supervision" guardrail (Step 4) is followed in practice —
+      explicit human confirmation before launching any agent with that capability — than in
+      per-binary wrappers. If a concrete, narrow (not speculative) case appears in the future that
+      warrants it, evaluate it using the same adversarial testing methodology used in this TODO.
 
-## Mecánica de lanzamiento multi-agente (hallazgos v0.30-v0.31)
+## Multi-agent launch mechanics (v0.30-v0.31 findings)
 
-Hallazgos de la primera corrida real de un patrón multi-agente completo vía `sdd-implement`
-(Orquestador + 3 CLIs externos en paralelo — Codex, opencode, Agy — ver `CHANGELOG.md` v0.31).
-Distinto en naturaleza del resto de este archivo (que es sobre la barrera de escritura a Engram) —
-son hallazgos sobre la mecánica de lanzamiento del Paso 4, no de seguridad.
+Findings from the first real run of a complete multi-agent pattern via `sdd-implement`
+(Orchestrator + 3 external CLIs in parallel — Codex, opencode, Agy — see `CHANGELOG.md` v0.31).
+Different in nature from the rest of this file (which concerns the Engram write barrier) — these are
+findings about Step 4 launch mechanics, not security.
 
-- [x] **`herdr agent send` no somete el prompt — resuelto en v0.31.** Los 3 CLIs quedaron con el
-      prompt largo pegado en su input box sin arrancar (0 archivos escritos por varios minutos)
-      hasta mandar `herdr pane run <target> ""` para completar el submit. Documentado en el Paso 4:
-      usar `pane run`, no `agent send`, para el prompt real de la tarea.
-- [x] **Verificado a fondo: Agy pide confirmación interactiva por acción (archivo o comando), sin
-      `--sandbox` — es su comportamiento default, no algo que trae el sandbox.** Repetido el
-      experimento en vivo (v0.32): Agy lanzado de nuevo vía Herdr en un directorio nuevo, pedido
-      crear 3 archivos y correr un comando de shell (`date`), sin `--sandbox`. Resultado: **4 de 4
-      acciones pidieron confirmación individual** (3 archivos + 1 comando), ninguna agrupada — más
-      un **trust prompt único** ("Do you trust the contents of this project?") por ser la primera vez
-      en ese directorio, que no había aparecido en el trial de `herd` porque Agy ya lo tenía confiado
-      de sesiones anteriores. Contradecía la nota anterior del Paso 4, que atribuía la fricción de
-      confirmación solo a `--sandbox` — corregido: la nota de Agy en el Paso 4 ahora dice
-      explícitamente que un rol de Agy con capacidad de escritura no es fire-and-forget, hay que
-      sondear (`agent read --source visible`) y aprobar cada prompt a medida que aparece, y que el
-      sandbox nativo suma fricción *adicional* a la que ya existe por default.
+- [x] **`herdr agent send` does not submit the prompt — resolved in v0.31.** The 3 CLIs were left with
+      the long prompt pasted into their input box without starting (0 files written for several minutes)
+      until `herdr pane run <target> ""` was sent to complete the submission. Documented in Step 4:
+      use `pane run`, not `agent send`, for the actual task prompt.
+- [x] **Thoroughly verified: Agy requests interactive confirmation per action (file or command),
+      without `--sandbox` — this is its default behavior, not something supplied by the sandbox.** The
+      live experiment was repeated (v0.32): Agy launched again through Herdr in a new directory, asked
+      to create 3 files and run a shell command (`date`), without `--sandbox`. Result: **4 of 4 actions
+      requested individual confirmation** (3 files + 1 command), none grouped — plus a single **trust
+      prompt** ("Do you trust the contents of this project?") because it was the first time in that
+      directory; it had not appeared in the `herd` trial because Agy already trusted it from previous
+      sessions. This contradicted the previous Step 4 note, which attributed confirmation friction only
+      to `--sandbox` — corrected: the Agy note in Step 4 now explicitly says that an Agy role with write
+      capability is not fire-and-forget; it must be polled (`agent read --source visible`) and each
+      prompt approved as it appears, and that the native sandbox adds *additional* friction to what
+      already exists by default.
 
-## Feedback de uso real — earpi (v0.33, cerrado)
+## Real-world usage feedback — earpi (v0.33, closed)
 
-Hallazgos de una sesión real corriendo `sdd-implement` sobre `specs/001-auth-minima` en el proyecto
-earpi (Setup + Foundational, T001-T010, 2026-08-09) — ver `FEEDBACK.md` en la raíz de ese repo. Distinto
-en naturaleza del resto de este archivo: son gaps funcionales de `sdd-implement`/`agent-selection`
-encontrados en uso real, no hallazgos de seguridad. Detalle completo de qué se aplicó en `CHANGELOG.md`
+Findings from a real session running `sdd-implement` on `specs/001-auth-minima` in the earpi project
+(Setup + Foundational, T001-T010, 2026-08-09) — see `FEEDBACK.md` at that repo's root. Different in
+nature from the rest of this file: these are functional gaps in `sdd-implement`/`agent-selection`
+found through real use, not security findings. Full detail of what was applied is in `CHANGELOG.md`
 v0.33.
 
-- [x] **Ambigüedad de "auth" en la lista de riesgo del Paso 2.** Aclarado en `SKILL.md`: se refiere a
-      tocar credenciales/infra de auth *real* fuera de plan, no a escribir código de una feature de auth
-      ya aprobada con `tasks.md` (la lectura literal forzaría re-confirmar tarea por tarea, contradiciendo
-      el propósito de `sdd-implement`).
-- [x] **`revision` no sirve para detectar cambios de pane — confirmado en vivo, no solo reportado.**
-      Repetido `herdr pane get`/`agent get` cada pocos segundos sobre un pane activo (el spinner del
-      terminal cambiaba visiblemente entre lecturas) — `revision` se mantuvo exactamente igual en todas
-      las lecturas. La sesión de earpi había reportado que siempre devolvía `0`; acá dio `2` de forma
-      constante, pero el patrón (no sube con cambios de contenido) es el mismo hallazgo. Documentada la
-      alternativa real en el Paso 4: `herdr wait agent-status --status ... --timeout MS` o
+- [x] **Ambiguity of "auth" in the Step 2 risk list.** Clarified in `SKILL.md`: it refers to touching
+      *real* auth credentials/infrastructure outside the plan, not writing code for an auth feature
+      already approved with `tasks.md` (a literal reading would force re-confirming task by task,
+      contradicting the purpose of `sdd-implement`).
+- [x] **`revision` cannot detect pane changes — confirmed live, not merely reported.** Repeated
+      `herdr pane get`/`agent get` every few seconds over an active pane (the terminal spinner visibly
+      changed between reads) — `revision` remained exactly the same in every reading. The earpi session
+      had reported that it always returned `0`; here it consistently returned `2`, but the pattern (it
+      does not increase with content changes) is the same finding. The real alternative was documented
+      in Step 4: `herdr wait agent-status --status ... --timeout MS` or
       `herdr wait output <pane_id> --match <texto> --timeout MS`.
-- [x] **Timeout de 180s insuficiente cuando el CLI externo corre su propia verificación.** Agregada
-      excepción explícita en el Paso 6: 300-600s (o `wait output --match`) para tareas donde el ejecutor
-      corre comandos (tests, build) como parte de verificar su propio trabajo — distinto de "tarea de
-      razonamiento largo", que ya tenía cobertura ("más para tareas de razonamiento largas").
-- [x] **Gotcha de shell: `status` es variable read-only en zsh — confirmado en vivo.**
-      `zsh -c 'status=5; echo ok'` da `zsh:1: read-only variable: status`, exit 1 — es alias de `$?`.
-      Agregado como nota en el Paso 4, junto a la guía de polling.
-- [x] **No hay forma de fijar un roster de CLI restringido a nivel proyecto.** Agregada nota al Paso 4:
-      chequear `.specify/memory/constitution.md` (proyectos con Spec Kit) o `CLAUDE.md` antes de asumir
-      las 4 CLIs disponibles; restricción verbal puntual se sugiere persistir ahí si se espera repetir.
-      No es una prueba en vivo — es una convención de diseño nueva, sin mecanismo previo que reemplazar.
+- [x] **180s timeout insufficient when the external CLI runs its own verification.** An explicit
+      exception was added in Step 6: 300–600s (or `wait output --match`) for tasks where the executor
+      runs commands (tests, build) as part of verifying its own work — distinct from a "long reasoning
+      task", which already had coverage ("more for long reasoning tasks").
+- [x] **Shell gotcha: `status` is read-only in zsh — confirmed live.**
+      `zsh -c 'status=5; echo ok'` returns `zsh:1: read-only variable: status`, exit 1 — it is an alias
+      for `$?`. Added as a note in Step 4, alongside the polling guidance.
+- [x] **There is no way to pin a restricted CLI roster at project level.** Added a note to Step 4:
+      check `.specify/memory/constitution.md` (projects with Spec Kit) or `CLAUDE.md` before assuming
+      all 4 CLIs are available; a one-off verbal restriction should be persisted there if repetition is
+      expected. This is not a live test — it is a new design convention, with no previous mechanism to
+      replace.
 
-## Feedback de uso real — earpi, actualización US1 (T011-T014) (v0.3 de sdd-implement, cerrado)
+## Real-world usage feedback — earpi, US1 update (T011-T014) (sdd-implement v0.3, closed)
 
-Segunda ronda de `FEEDBACK.md` en earpi, sesión nativa 2026-08-09, corriendo `sdd-implement` sobre
-T011-T014 de `001-auth-minima`. Distinta de la ronda anterior en dónde aplica: son gaps de la
-*ejecución de fases* (Paso 3 de `sdd-implement`), no de la elección de ruta/CLI de `agent-selection` —
-las correcciones van en `.claude/skills/sdd-implement/SKILL.md`, ver `sdd-implement/CHANGELOG.md` v0.3.
+Second `FEEDBACK.md` round in earpi, native session on 2026-08-09, running `sdd-implement` on
+T011-T014 of `001-auth-minima`. It differs from the previous round in where it applies: these are
+gaps in *phase execution* (Step 3 of `sdd-implement`), not in `agent-selection` route/CLI selection —
+the fixes go in `.claude/skills/sdd-implement/SKILL.md`; see `sdd-implement/CHANGELOG.md` v0.3.
 
-- [x] **El cwd del Bash tool no persiste entre llamadas — confirmado en vivo, más a fondo que el
-      reporte de earpi.** earpi reportó sospecha de reset ocasional (interleaving con otra tool). Acá
-      se probó de forma aislada y determinista: `cd .../earpi/backend && pwd` en una llamada, seguido
-      de `pwd` solo en la siguiente (sin ninguna otra tool en el medio) — **el cwd ya había vuelto** al
-      working directory primario de la sesión. Repetido 3 veces seguidas, mismo resultado cada vez. No
-      es "a veces por interleaving", es **cada llamada de Bash arranca en el working directory
-      primario**, sin importar qué `cd` haya corrido antes. `cd` solo sobrevive dentro de la misma
-      invocación compuesta (`cd /ruta && comando`), confirmado también en vivo. Documentado como
-      precaución operativa en `sdd-implement` Paso 3.
-- [x] **Infra externa (DB, contenedores) puede caer a mitad de una fase sin aviso — aplicado por
-      extensión de un principio ya probado, no una prueba nueva.** earpi reportó que OrbStack/Docker
-      cayó a mitad de T011 sin señal previa, detectado recién al fallar el test. `agent-selection` Paso
-      6 punto 2 ya cubre esto para Herdr ("no hay señal proactiva, se detecta porque el siguiente
-      comando falla o no responde — volver a chequear el estado antes de asumir otra cosa"). Extendido
-      el mismo principio a `sdd-implement` Paso 3 punto 7 (fallos a mitad de fase): si una fase depende
-      de infra externa corriendo, verificar que siga viva antes de asumir que el fallo es del código.
+- [x] **The Bash tool's cwd does not persist between calls — confirmed live, more thoroughly than
+      earpi's report.** earpi reported a suspected occasional reset (interleaving with another tool).
+      Here it was tested in isolation and deterministically: `cd .../earpi/backend && pwd` in one call,
+      followed by `pwd` alone in the next (with no other tool in between) — **the cwd had already
+      returned** to the session's primary working directory. Repeated 3 times in a row, with the same
+      result each time. It is not "sometimes due to interleaving"; **every Bash call starts in the
+      primary working directory**, regardless of what `cd` ran before. `cd` only survives within the
+      same compound invocation (`cd /path && command`), also confirmed live. Documented as an
+      operational precaution in `sdd-implement` Step 3.
+- [x] **External infrastructure (DB, containers) can go down midway through a phase without warning
+      — applied by extending a principle already tested, not a new test.** earpi reported that
+      OrbStack/Docker went down midway through T011 without a prior signal, detected only when the test
+      failed. `agent-selection` Step 6 item 2 already covers this for Herdr ("there is no proactive
+      signal; it is detected because the next command fails or does not respond — check the status again
+      before assuming anything else"). The same principle was extended to `sdd-implement` Step 3 item 7
+      (mid-phase failures): if a phase depends on external infrastructure running, verify that it is
+      still alive before assuming the failure is in the code.
 
-## Confirmación en producción — earpi, actualización US2 (T015-T019)
+## Production confirmation — earpi, US2 update (T015-T019)
 
-Tercera ronda de `FEEDBACK.md` en earpi, sesión nativa 2026-08-09, corriendo `sdd-implement` sobre
-T015-T019 de `001-auth-minima`. A diferencia de las dos rondas anteriores, no trae fricciones nuevas —
-confirma en un run posterior que los fixes de las dos rondas previas funcionan en la práctica. Sin
-cambios de contenido en `SKILL.md`, solo este registro.
+Third `FEEDBACK.md` round in earpi, native session on 2026-08-09, running `sdd-implement` on T015-T019
+of `001-auth-minima`. Unlike the two previous rounds, it brings no new friction — it confirms in a
+later run that the fixes from the two previous rounds work in practice. No content changes in
+`SKILL.md`, only this record.
 
-- [x] **Los fixes de v0.33 (`agent-selection`) y v0.3 (`sdd-implement`) funcionaron limpio.**
-      `herdr wait agent-status <target> --status idle --timeout 480000` (codex) y
-      `herdr wait output <target> --match <marcador> --regex --timeout 480000` (opencode) — el
-      reemplazo documentado para el polling por `revision`/`agent wait` a secas — detectaron a ambos
-      ejecutores sin falsos timeouts ni lecturas manuales de más. Sin fricción nueva para el patrón
-      multi-agente en esta ronda.
-- [x] **Delegación con contrato fijo, 3ª confirmación consecutiva.** T015 (opencode) y T016 (codex)
-      dieron resultado correcto al primer intento con prompts autocontenidos que incluían el contrato
-      exacto a testear — mismo patrón que ya había dado resultado limpio en T008/T009. Sin cambios: el
-      patrón ya estaba documentado, esto es evidencia adicional de que sostiene.
-- Un tercer punto de esa ronda (bug real de scoping `derive`/`onBeforeHandle` de Elysia en Direct
-  inline, detectado por un test de contrato) queda **fuera de alcance a propósito** — earpi mismo lo
-  marcó explícitamente como no hallazgo de `agent-selection`/`sdd-implement`, solo dato de proceso
-  (correr tests reales después de implementar sigue pagando). No requiere cambio acá.
+- [x] **The v0.33 (`agent-selection`) and v0.3 (`sdd-implement`) fixes worked cleanly.**
+      `herdr wait agent-status <target> --status idle --timeout 480000` (codex) and
+      `herdr wait output <target> --match <marcador> --regex --timeout 480000` (opencode) — the
+      documented replacement for polling by `revision`/`agent wait` alone — detected both executors
+      without false timeouts or extra manual reads. No new friction for the multi-agent pattern in this
+      round.
+- [x] **Fixed-contract delegation, 3rd consecutive confirmation.** T015 (opencode) and T016 (codex)
+      produced the correct result on the first attempt with self-contained prompts that included the
+      exact contract to test — the same pattern that had already produced a clean result in T008/T009.
+      No changes: the pattern was already documented; this is additional evidence that it holds.
+- A third point from that round (a real `derive`/`onBeforeHandle` scoping bug in Elysia in Direct
+  inline, detected by a contract test) is **deliberately out of scope** — earpi explicitly marked it as
+  not an `agent-selection`/`sdd-implement` finding, only process data (running real tests after
+  implementation continues to pay off). No change is required here.
 
-## Investigación de `herdr --help` — comandos no documentados (v0.35-v0.36, cerrado)
+## Investigation of `herdr --help` — undocumented commands (v0.35-v0.36, closed)
 
-Ronda de exploración de `herdr --help` (y subcomandos) pedida por el usuario para ver qué mecanismos
-de Herdr no estaban aprovechados todavía en esta skill. Dos hallazgos probados en vivo (creando y
-limpiando tabs/panes de prueba reales, no especulación); otros candidatos (`herdr worktree`, `herdr
-notification show`, `herdr integration status`) quedaron identificados pero sin probar a fondo — ver
-más abajo.
+Exploration round of `herdr --help` (and subcommands) requested by the user to see which Herdr
+mechanisms were not yet being used in this skill. Two findings tested live (creating and cleaning up
+real test tabs/panes, not speculation); other candidates (`herdr worktree`, `herdr notification show`,
+`herdr integration status`) were identified but not thoroughly tested — see below.
 
-- [x] **`herdr agent start` investigado y descartado como atajo de lanzamiento.** Probado en vivo con
-      Codex real: sin `--tab`, hace split 50/50 del tab actual en vez de crear un tab nuevo. Con
-      `--tab <id>` apuntando a un tab recién creado y vacío, **igual hizo split** del pane root de ese
-      tab (confirmado con `pane layout`) en vez de usarlo directo. Conclusión: `agent start` está
-      pensado para el caso "varios agentes visibles simultáneamente en un mismo tab", no para el patrón
-      "un tab nuevo por agente" que usa esta skill — no reemplaza `tab create` → `pane run`. Aplicado en
-      `SKILL.md` Paso 4, nota junto a la secuencia de lanzamiento.
-- [x] **Confirmado con prueba real: `agent_status`/`agent wait --status` no funcionan en absoluto para
-      Agy — es un fallback estático, no detección real.** `herdr agent explain <pane_id>` sobre un pane
-      de Agy dio siempre `rule: none` / `fallback_reason: default_known_agent_idle_fallback` en los tres
-      momentos probados: (1) bloqueado en el trust prompt inicial sin resolver, (2) recién booteado y
-      genuinamente idle, (3) a mitad de una tarea real en curso (pedido de contar del 1 al 5, verificado
-      que efectivamente estaba procesando). Los tres dieron **exactamente el mismo output**, y `herdr
-      agent list` reportó `agent_status: done` en los tres casos por igual — ni siquiera distingue
-      "bloqueado esperando input" de "trabajando" de "listo". Distinto de opencode (que sí tiene
-      detección real, solo que "poco confiable" en algunos casos) — acá no hay ninguna señal detrás del
-      status, el manifest (`agy.toml`) existe pero no tiene ninguna regla que dispare nunca. Aplicado en
-      `SKILL.md`: nota nueva en la fila de Agy de la tabla de CLIs y nota extendida junto a la nota
-      existente de confirmación-por-acción — la única señal confiable para Agy sigue siendo leer el pane
-      o `wait output --match`, nunca `agent wait --status`.
-      **De paso, hallazgo secundario**: `herdr agent explain <target> [--json]` es una herramienta de
-      diagnóstico real y útil (muestra la regla exacta que disparó un status, o el motivo del fallback si
-      no disparó ninguna) — documentado como referencia rápida en el Paso 4, junto a la nota de
-      `revision`.
-- [x] **`herdr worktree create/open/remove` confirmado como respuesta real al gap de escritura
-      paralela.** Probado en vivo sobre el repo `herd`: `herdr worktree create --workspace wH --branch
-      test/herdr-worktree-check --label wt-test --no-focus` creó un worktree de git real (visible con
-      `git worktree list` desde el repo principal) en una workspace nueva de Herdr con su propio
-      tab/pane, sobre una rama propia. Aislación confirmada en ambos sentidos: un archivo escrito dentro
-      del worktree (`wt-isolation-test.txt`) no apareció en el `git status` del repo principal, y los 3
-      archivos con cambios sin commitear del repo principal (los mismos de esta ronda) no se filtraron al
-      `git status` del worktree. `herdr worktree remove --workspace ID` se negó por defecto por quedar
-      sucio (`dirty_worktree_requires_force`), hubo que pasar `--force` — buen guardrail. Limpiado del
-      todo: worktree removido, rama de prueba borrada (`git branch -D`), `git worktree list` vuelve a
-      mostrar solo el repo principal. Aplicado en `SKILL.md`: guardrail nuevo en la sección de escritura
-      del Paso 4, recomendando `herdr worktree` cuando 2+ agentes con capacidad de escritura corren en
-      paralelo sobre el mismo repo.
-- [x] **`herdr notification show` probado en vivo — no utilizable en este entorno.** Corrido con
-      `--sound none`, devolvió `{"shown": false, "reason": "disabled"}` sin ningún error. Revisado
-      `config.toml` completo — no hay ningún toggle de notificaciones ahí, la causa más probable es
-      permiso de notificaciones del SO (macOS) no otorgado a Herdr, no una config de la skill. Aplicado
-      en `SKILL.md`: nota junto a la de `agent rename` avisando que no depender de este mecanismo sin
-      confirmar antes que las notificaciones del sistema estén habilitadas.
-- [x] **`agent rename` vs `pane rename` vs `tab rename` — diferencia real confirmada en vivo, probada
-      sobre el pane de esta misma sesión y revertida sin dejar rastro.** Solo `agent rename <target>
-      <name>` crea un alias direccionable — después de renombrar, `herdr agent get <name>` resolvió
-      igual que por `pane_id`. `pane rename <pane_id> <label>` y `tab rename <tab_id> <label>` solo
-      cambian una etiqueta visual: probado que `agent get`/`pane get`/`tab get` por ese label fallan con
-      `not_found` en los dos casos, siguen necesitando el id real. Revertido con `agent rename --clear`,
-      `pane rename --clear` y `tab rename <id> 1` (label numérico default) — estado final idéntico al
-      baseline (verificado con `agent get`/`pane get`/`tab get` antes/después). Aplicado en `SKILL.md`
-      junto a la nota de `agent start`.
+- [x] **`herdr agent start` investigated and discarded as a launch shortcut.** Tested live with real
+      Codex: without `--tab`, it splits the current tab 50/50 instead of creating a new tab. With
+      `--tab <id>` pointing to a newly created, empty tab, it **still split** that tab's root pane
+      (confirmed with `pane layout`) instead of using it directly. Conclusion: `agent start` is meant
+      for the case "several agents visible simultaneously in one tab", not the "one new tab per agent"
+      pattern used by this skill — it does not replace `tab create` → `pane run`. Applied in `SKILL.md`
+      Step 4, in the note beside the launch sequence.
+- [x] **Confirmed with a real test: `agent_status`/`agent wait --status` do not work at all for Agy —
+      it is a static fallback, not real detection.** `herdr agent explain <pane_id>` on an Agy pane
+      always returned `rule: none` / `fallback_reason: default_known_agent_idle_fallback` at all three
+      tested moments: (1) blocked at the unresolved initial trust prompt, (2) freshly booted and
+      genuinely idle, (3) midway through a real task (asked to count from 1 to 5, verified to be
+      processing). All three produced **exactly the same output**, and `herdr agent list` reported
+      `agent_status: done` in all three cases — it cannot even distinguish "blocked waiting for input"
+      from "working" or "ready". Unlike opencode (which does have real detection, only "unreliable" in
+      some cases), there is no signal behind the status here; the manifest (`agy.toml`) exists but has
+      no rule that ever fires. Applied in `SKILL.md`: new note in Agy's CLI-table row and an expanded
+      note beside the existing per-action-confirmation note — the only reliable signal for Agy remains
+      reading the pane or `wait output --match`, never `agent wait --status`.
+      **As a secondary finding**: `herdr agent explain <target> [--json]` is a real, useful diagnostic
+      tool (shows the exact rule that triggered a status, or the fallback reason if none triggered) —
+      documented as a quick reference in Step 4, beside the `revision` note.
+- [x] **`herdr worktree create/open/remove` confirmed as a real answer to the parallel-write gap.**
+      Tested live on the `herd` repo: `herdr worktree create --workspace wH --branch
+      test/herdr-worktree-check --label wt-test --no-focus` created a real git worktree (visible with
+      `git worktree list` from the main repo) in a new Herdr workspace with its own tab/pane, on its own
+      branch. Isolation confirmed in both directions: a file written inside the worktree
+      (`wt-isolation-test.txt`) did not appear in the main repo's `git status`, and the 3 uncommitted
+      changed files in the main repo (the same ones from this round) did not leak into the worktree's
+      `git status`. `herdr worktree remove --workspace ID` refused by default because it was dirty
+      (`dirty_worktree_requires_force`); `--force` had to be passed — a good guardrail. Fully cleaned:
+      worktree removed, test branch deleted (`git branch -D`), `git worktree list` again shows only the
+      main repo. Applied in `SKILL.md`: new guardrail in the Step 4 writing section, recommending
+      `herdr worktree` when 2+ agents with write capability run in parallel on the same repo.
+- [x] **`herdr notification show` tested live — unusable in this environment.** Run with
+      `--sound none`, it returned `{"shown": false, "reason": "disabled"}` without any error. The
+      complete `config.toml` was reviewed — there is no notification toggle there; the most likely cause
+      is that Herdr has not been granted OS notification permission (macOS), not a skill config. Applied
+      in `SKILL.md`: note beside the `agent rename` note warning not to depend on this mechanism without
+      first confirming that system notifications are enabled.
+- [x] **`agent rename` vs `pane rename` vs `tab rename` — real difference confirmed live, tested on
+      this session's pane and reverted without a trace.** Only `agent rename <target> <name>` creates an
+      addressable alias — after renaming, `herdr agent get <name>` resolved just as by `pane_id`.
+      `pane rename <pane_id> <label>` and `tab rename <tab_id> <label>` only change a visual label:
+      tested that `agent get`/`pane get`/`tab get` by that label fail with `not_found` in both cases and
+      still require the real id. Reverted with `agent rename --clear`, `pane rename --clear`, and
+      `tab rename <id> 1` (default numeric label) — final state identical to baseline (verified with
+      `agent get`/`pane get`/`tab get` before/after). Applied in `SKILL.md` beside the `agent start` note.
 
-## Pendiente: reintentar detección de Agy vía `herdr server update-agent-manifests` (v0.37-v0.38, cerrado)
+## Pending: retry Agy detection via `herdr server update-agent-manifests` (v0.37-v0.38, closed)
 
-Hallazgo de lectura de doc, no de prueba en vivo — pedido por el usuario como "anotalo, luego lo
-pruebas". `https://herdr.dev/docs/agents/` (sección "Detection manifests" / "Blocked state") confirma
-con fuente oficial lo que ya se había probado empíricamente con Agy (`TODO.md`, ronda v0.35-v0.36):
+Finding from reading the docs, not a live test — requested by the user as "note it down, then test it".
+`https://herdr.dev/docs/agents/` ("Detection manifests" / "Blocked state" section) officially confirms
+what had already been tested empirically with Agy (`TODO.md`, v0.35-v0.36 round):
 
 > "Blocked detection is deliberately strict for screen-manifest agents. Herdr only marks `blocked` when
 > the live bottom-buffer snapshot matches known visible approval, question, or permission UI. If no rule
 > matches for a known agent, Herdr falls back to `idle`."
 
-La tabla "Supported agents" de esa misma página confirma que **Agy es agente "screen manifest" puro**
-(sin lifecycle hooks) — a diferencia de OpenCode/Pi/OMP/Kimi/Kilo/MastraCode, que sí tienen "state and
-session" completo. Esto encaja con lo ya confirmado: `rule: none` /
-`fallback_reason: default_known_agent_idle_fallback` en los tres estados probados (bloqueado en trust
-prompt, idle real, trabajando). No cambia la conclusión práctica (para Agy, nunca confiar en
-`agent_status`/`agent wait --status`), pero explica que es un límite conocido del mecanismo de
-manifiestos, no un bug sin explicación.
+The "Supported agents" table on that same page confirms that **Agy is a pure "screen manifest" agent**
+(with no lifecycle hooks) — unlike OpenCode/Pi/OMP/Kimi/Kilo/MastraCode, which do have complete "state
+and session" support. This fits what was already confirmed: `rule: none` /
+`fallback_reason: default_known_agent_idle_fallback` in all three tested states (blocked at the trust
+prompt, genuinely idle, working). It does not change the practical conclusion (for Agy, never trust
+`agent_status`/`agent wait --status`), but explains that this is a known limitation of the manifest
+mechanism, not an unexplained bug.
 
-**Lo nuevo, sin probar todavía**: la misma página documenta dos comandos que podrían mejorar esto, no
-solo explicarlo:
-- `herdr server update-agent-manifests` — trae actualizaciones remotas de manifiestos de detección; el
-  manifiesto de Agy visto en vivo (`agy.toml 2026.06.24.1`) podría estar desactualizado respecto al que
-  ofrece `herdr.dev` ahora.
-- Override local en `~/.config/herdr/agent-detection/agy.toml` — "Local overrides always win"; si el
-  manifiesto remoto sigue sin cubrir la pantalla de confirmación/trust-prompt de Agy, se podría escribir
-  una regla propia.
+**New, not yet tested**: the same page documents two commands that could improve this, not just explain
+it:
+- `herdr server update-agent-manifests` — fetches remote detection-manifest updates; the Agy manifest
+  seen live (`agy.toml 2026.06.24.1`) might be outdated relative to what `herdr.dev` offers now.
+- Local override at `~/.config/herdr/agent-detection/agy.toml` — "Local overrides always win"; if the
+  remote manifest still does not cover Agy's confirmation/trust-prompt screen, a custom rule could be
+  written.
 
-- [x] **Cerrado en v0.38 — probado en vivo, `update-agent-manifests` NO arregla la detección de Agy.**
-      De paso se actualizó Herdr entero de 0.7.4 a 0.8.0 (ver sección siguiente), lo que reinició el
-      server y permitió correr `herdr server update-agent-manifests` de verdad. Resultado: `agy` ya
-      figuraba `current` (`2026.06.24.1`, mismo que antes) — no era un problema de caché desactualizada,
-      el manifiesto remoto simplemente no tiene ninguna regla para el trust-prompt/confirmación de Agy.
-      Repetida la prueba con Agy relanzado desde cero en un directorio nuevo (vía el `agent start
-      --kind agy --pane` nuevo de 0.8.0): mismo resultado que en v0.35-v0.36 (`rule: none`,
-      `fallback_reason: default_known_agent_idle_fallback`), y **encima el propio `agent start` devolvió
-      `agent_status: idle`/`interactive_ready: true` mientras Agy seguía en el trust prompt sin
-      resolver** (confirmado leyendo el pane). `agent wait --until blocked` dio timeout siempre, nunca
-      lo detectó. Sigue sin probar el override local (`~/.config/herdr/agent-detection/agy.toml`) — se
-      deja como candidato de una ronda futura si se necesita cerrar esto del todo, pero ya no es
-      prioritario: la skill documenta bien el workaround (leer el pane, nunca confiar en
-      `agent_status`/`agent wait`/el retorno de `agent start` para Agy).
+- [x] **Closed in v0.38 — tested live, `update-agent-manifests` does NOT fix Agy detection.** Herdr was
+      also upgraded from 0.7.4 to 0.8.0 (see next section), which restarted the server and allowed
+      `herdr server update-agent-manifests` to be run for real. Result: `agy` already showed `current`
+      (`2026.06.24.1`, same as before) — it was not an outdated-cache problem; the remote manifest
+      simply has no rule for Agy's trust prompt/confirmation. The test was repeated with Agy relaunched
+      from scratch in a new directory (through the new 0.8.0 `agent start --kind agy --pane`): same
+      result as in v0.35-v0.36 (`rule: none`, `fallback_reason: default_known_agent_idle_fallback`),
+      and **`agent start` itself returned `agent_status: idle`/`interactive_ready: true` while Agy
+      remained at the unresolved trust prompt** (confirmed by reading the pane). `agent wait --until
+      blocked` always timed out and never detected it. The local override
+      (`~/.config/herdr/agent-detection/agy.toml`) remains untested — left as a candidate for a future
+      round if fully closing this is needed, but it is no longer a priority: the skill documents the
+      workaround well (read the pane; never trust `agent_status`/`agent wait`/the `agent start` return
+      for Agy).
 
-## Actualización de Herdr 0.7.4 → 0.8.0 y superficie de comandos nueva (v0.38, cerrado)
+## Herdr 0.7.4 → 0.8.0 update and new command surface (v0.38, closed)
 
-Pedido explícito del usuario tras leer `https://herdr.dev/docs/agent-automation/` (que documentaba
-`--kind`, `agent prompt`, `agent send-keys`, `pane wait-output` — comandos que la versión instalada
-0.7.4 no reconocía, confirmado probándolos en vivo antes de actualizar). Actualización hecha con
-`brew upgrade herdr` (0.7.4 → 0.8.0, bottled) + reinicio del server (confirmado por el usuario, no por
-esta sesión — `herdr update --handoff` está deshabilitado para instalaciones vía Homebrew, pide
-`brew upgrade` en su lugar). Verificado post-reinicio: `herdr status` da `client.version: 0.8.0`,
-`server.version: 0.8.0`, `compatible: yes` — la sesión de esta skill siguió viva sin cortes.
+Explicit user request after reading `https://herdr.dev/docs/agent-automation/` (which documented
+`--kind`, `agent prompt`, `agent send-keys`, `pane wait-output` — commands the installed 0.7.4
+version did not recognize, confirmed by testing them live before updating). Update performed with
+`brew upgrade herdr` (0.7.4 → 0.8.0, bottled) + server restart (confirmed by the user, not this
+session — `herdr update --handoff` is disabled for Homebrew installations and requests `brew upgrade`
+instead). Verified after restart: `herdr status` returns `client.version: 0.8.0`,
+`server.version: 0.8.0`, `compatible: yes` — this skill's session continued without interruption.
 
-- [x] **`herdr --skill` es la referencia oficial y autoritativa, embebida en el binario mismo.**
-      Descubierto vía `--help` (nuevo flag `--skill`, "Print the agent skill file and exit"). Trae
-      instrucciones completas versionadas junto con el CLI instalado — más confiable que la doc web para
-      la sintaxis exacta. Recomendación para rondas futuras: correr `herdr --skill` primero en vez de
-      reconstruir la sintaxis a mano con `--help` + prueba y error.
-- [x] **`$HERDR_ENV`/`$HERDR_WORKSPACE_ID`/`$HERDR_TAB_ID`/`$HERDR_PANE_ID` — mecanismo oficial y más
-      simple para el chequeo del Paso 0.** Confirmado en vivo: `$HERDR_ENV=1` dentro del pane de esta
-      sesión, con los 3 IDs ya seteados. Reemplaza el `agent list` + matchear `terminal_id` a mano que
-      usaba el Paso 0 hasta ahora. Aplicado en `SKILL.md`.
-- [x] **`agent start --kind <cli> --pane <pane_id> -- <args>` (nuevo en 0.8.0) sí reemplaza la
-      secuencia vieja — a diferencia de lo concluido en v0.35 contra 0.7.0.** Probado en vivo con Codex
-      real: `tab create` (pane root vacío) → `agent start reviewer-test --kind codex --pane <root_pane>
-      -- -m gpt-5.6-luna -c model_reasoning_effort="high" -s workspace-write` — confirmado con
-      `pane layout` que **no hizo split** (un solo pane en el tab), y bloqueó hasta detectar el estado
-      real (`blocked`, por el trust-prompt de Codex). Con `agent send-keys reviewer-test enter` se
-      resolvió el prompt, y `agent prompt reviewer-test "Cuenta del 1 al 5..." --wait --timeout 60000`
-      sometió la tarea real y esperó su cierre en un solo comando (2.5s), confirmado leyendo la
-      respuesta real con `agent read`. **Importante**: el retorno de `agent start` solo confirma que
-      Herdr reconoció *algún* estado (incluyendo `blocked`), no que esté listo para la tarea real — hay
-      que revisar `agent_status` de la respuesta antes de mandar el prompt.
-- [x] **Para Agy específicamente, `agent start` no es confiable ni con 0.8.0** — ver hallazgo cerrado
-      arriba (`update-agent-manifests`). Documentado explícitamente en `SKILL.md`.
-- [x] **`agent prompt <target> "<texto>" --wait --timeout MS` reemplaza `pane run` + espera manual.**
-      Probado en vivo (ver punto anterior) — atómico, con detección de stall (`agent_prompt_stalled` si
-      no hay cambio de ciclo de vida en 5s desde un estado no-`working`).
-- [x] **`agent send-keys <target> <tecla>` reemplaza `pane run <target> "1"` para aprobar prompts de
-      confirmación de CLIs (Agy, hooks de Codex).** Probado en vivo con Codex (`enter` resolvió el
-      trust-prompt). Más seguro que `pane run`/`pane send-keys` a ciegas: Herdr valida la tecla y
-      rechaza si el agente ya no controla el pane.
-- [x] **Decisión de diseño explícita del usuario**: mantener la convención "un tab nuevo por agente,
-      nunca split" — el skill oficial de Herdr recomienda por default lo contrario (split en el tab
-      actual, sin crear tabs nuevos salvo pedido explícito). Se preguntó directamente y el usuario eligió
-      mantener la convención existente de esta skill. `SKILL.md` sigue usando `tab create` (pane root
-      vacío) antes de `agent start --pane`, nunca `pane split`.
-      **Registrado explícitamente para que una ronda futura no "corrija" esto sin saber que fue una
-      decisión consciente, no un descuido.**
-- [x] **Comandos de espera renombrados en 0.8.0**: `herdr wait agent-status`/`herdr wait output`
-      (nivel top, `--status`) pasan a `herdr agent wait` (`--until`, repetible, default
-      `idle`/`done`/`blocked` sin necesidad de pasarlo) y `herdr pane wait-output` (mismo rol que el
-      viejo `wait output`, ahora bajo `pane`). `agent send` (solo tipeaba, no sometía) ya no existe como
-      tal, reemplazado por `agent prompt`/`agent send-keys`. Todo aplicado en `SKILL.md`, con nota
-      explícita de fallback a la sintaxis vieja si algún día el server vuelve a estar en <0.8.0.
-- [x] **`herdr update --handoff` no sirve para instalaciones vía Homebrew** — probado en vivo, devuelve
-      `self-update is disabled for Homebrew installs; run 'brew update && brew upgrade herdr'`. No hay
-      un comando de "reiniciar el server con handoff" separado para este caso — solo `herdr server
-      stop` (corte duro) o que el usuario lo reinicie manualmente. El usuario optó por reiniciarlo él
-      mismo fuera de esta sesión.
+- [x] **`herdr --skill` is the official, authoritative reference, embedded in the binary itself.**
+      Discovered through `--help` (new `--skill` flag, "Print the agent skill file and exit"). It
+      provides complete instructions versioned alongside the installed CLI — more reliable than web
+      docs for exact syntax. Recommendation for future rounds: run `herdr --skill` first instead of
+      reconstructing syntax manually with `--help` + trial and error.
+- [x] **`$HERDR_ENV`/`$HERDR_WORKSPACE_ID`/`$HERDR_TAB_ID`/`$HERDR_PANE_ID` — official, simpler
+      mechanism for the Step 0 check.** Confirmed live: `$HERDR_ENV=1` inside this session's pane,
+      with all 3 IDs already set. Replaces the `agent list` + manually matching `terminal_id` that Step
+      0 had used until now. Applied in `SKILL.md`.
+- [x] **`agent start --kind <cli> --pane <pane_id> -- <args>` (new in 0.8.0) does replace the old
+      sequence — unlike the v0.35 conclusion against 0.7.0.** Tested live with real Codex: `tab create`
+      (empty root pane) → `agent start reviewer-test --kind codex --pane <root_pane>
+      -- -m gpt-5.6-luna -c model_reasoning_effort="high" -s workspace-write` — confirmed with
+      `pane layout` that it **did not split** (one pane in the tab), and blocked until it detected the
+      real state (`blocked`, due to Codex's trust prompt). `agent send-keys reviewer-test enter` resolved
+      the prompt, and `agent prompt reviewer-test "Count from 1 to 5..." --wait --timeout 60000`
+      submitted the real task and waited for it to close in a single command (2.5s), confirmed by
+      reading the real response with `agent read`. **Important**: the `agent start` return only confirms
+      that Herdr recognized *some* state (including `blocked`), not that it is ready for the real task —
+      `agent_status` in the response must be checked before sending the prompt.
+- [x] **For Agy specifically, `agent start` is not reliable even with 0.8.0** — see the closed finding
+      above (`update-agent-manifests`). Explicitly documented in `SKILL.md`.
+- [x] **`agent prompt <target> "<texto>" --wait --timeout MS` replaces `pane run` + manual waiting.**
+      Tested live (see previous item) — atomic, with stall detection (`agent_prompt_stalled` if there is
+      no lifecycle change for 5s from a non-`working` state).
+- [x] **`agent send-keys <target> <tecla>` replaces `pane run <target> "1"` for approving CLI
+      confirmation prompts (Agy, Codex hooks).** Tested live with Codex (`enter` resolved the trust
+      prompt). Safer than blind `pane run`/`pane send-keys`: Herdr validates the key and rejects it if
+      the agent no longer controls the pane.
+- [x] **Explicit user design decision**: keep the convention "one new tab per agent, never split" —
+      Herdr's official skill recommends the opposite by default (split in the current tab, without
+      creating new tabs unless explicitly requested). The user was asked directly and chose to keep this
+      skill's existing convention. `SKILL.md` continues to use `tab create` (empty root pane) before
+      `agent start --pane`, never `pane split`.
+      **Recorded explicitly so a future round does not "correct" this without knowing it was a conscious
+      decision, not an oversight.**
+- [x] **Wait commands renamed in 0.8.0**: `herdr wait agent-status`/`herdr wait output` (top-level,
+      `--status`) become `herdr agent wait` (`--until`, repeatable, default `idle`/`done`/`blocked`
+      without needing to pass it) and `herdr pane wait-output` (same role as old `wait output`, now under
+      `pane`). `agent send` (only typed, did not submit) no longer exists as such, replaced by
+      `agent prompt`/`agent send-keys`. All applied in `SKILL.md`, with an explicit fallback note to the
+      old syntax if the server ever returns to <0.8.0.
+- [x] **`herdr update --handoff` does not work for Homebrew installations** — tested live, returns
+      `self-update is disabled for Homebrew installs; run 'brew update && brew upgrade herdr'`. There
+      is no separate "restart the server with handoff" command for this case — only `herdr server stop`
+      (hard stop) or having the user restart it manually. The user chose to restart it outside this
+      session.
 
-## Lectura de `https://herdr.dev/docs/integrations/` y corrección de opencode (v0.39)
+## Reading `https://herdr.dev/docs/integrations/` and correcting opencode (v0.39)
 
-Pedido del usuario: analizar esa página antes de decidir si valía la pena reprobar la confiabilidad de
-`agent_status` en opencode (nuestra nota decía "no es confiable", pero la página oficial clasifica a
-opencode en el grupo "lifecycle authority" — hooks reales — junto a Pi/OMP/Kimi/Kilo/MastraCode, a
-diferencia de Claude Code/Codex/Agy que solo tienen "session identity"). Se pidió probarlo en vivo antes
-de tocar nada.
+User request: analyze that page before deciding whether it was worth retesting the reliability of
+`agent_status` in opencode (our note said "not reliable", but the official page classifies opencode in
+the "lifecycle authority" group — real hooks — alongside Pi/OMP/Kimi/Kilo/MastraCode, unlike Claude
+Code/Codex/Agy, which only have "session identity"). Live testing was requested before touching
+anything.
 
-- [x] **Confirmado en vivo: la nota de opencode estaba desactualizada — sí tiene detección de estado
-      real y confiable.** Lanzado opencode real (`agent start --kind opencode --pane <root_pane> --
-      -m opencode/deepseek-v4-flash-free`), confirmado `interactive_ready` genuino con `agent read`.
-      Mandada una tarea real con `agent prompt` (sin `--wait`, a propósito, para poder sondear el estado
-      a mitad de camino): `agent_status` pasó correctamente de `idle` a `working` mientras el pane
-      mostraba el spinner "Thinking" generando texto de verdad, y `herdr agent explain` mostró
-      `screen_detection_skip_reason: full_lifecycle_hook_authority` — confirma que Herdr ni siquiera usa
-      el screen-manifest acá, tiene autoridad de hook real. Al terminar la tarea (14.0s reportados por el
-      propio opencode), `agent_status` volvió a `idle` — verificado leyendo la respuesta completa en el
-      pane, coincide con "tarea realmente terminada", a diferencia del fallback estático de Agy. Único
-      matiz real: hay un lag breve (bajo 1s) entre someter el prompt y que el hook reporte `working` por
-      primera vez — no afecta a llamadas bloqueantes (`agent prompt --wait`/`agent wait`), solo a un
-      `agent get` suelto sin esperar justo después de someter.
-      Aplicado en `SKILL.md`: corregida la fila de opencode en la tabla de CLIs y la nota de la sección
-      de polling que lo mencionaba como ejemplo de detección poco confiable (ahora solo queda Agy ahí).
-- [x] **De paso, la página confirmó y explicó por qué Claude Code/Codex funcionan bien pese a estar en
-      "session identity" (sin hooks reales) — no hace falta acción, es contexto que ya encajaba con lo
-      observado.** Confirma que la fiabilidad real depende de si el manifiesto de screen-detection de
-      cada CLI matchea su pantalla, no de la categoría oficial por sí sola — Agy también es "session
-      identity" y ahí sí falla (ver hallazgo cerrado en la sección anterior).
-- [ ] Sin probar: `herdr integration install antigravity-cli` (nombre correcto de la integración de Agy,
-      no `agy`) — según la doc solo da restauración de sesión (`agy --conversation <id>`), no
-      arreglaría la detección de estado (Agy sigue en "session identity", no "lifecycle authority"). Baja
-      prioridad, no cierra el problema ya documentado.
+- [x] **Confirmed live: the opencode note was outdated — it does have real, reliable state detection.**
+      Real opencode launched (`agent start --kind opencode --pane <root_pane> --
+      -m opencode/deepseek-v4-flash-free`), genuine `interactive_ready` confirmed with `agent read`.
+      A real task was sent with `agent prompt` (without `--wait`, deliberately, to poll the state
+      midway): `agent_status` correctly moved from `idle` to `working` while the pane showed the
+      "Thinking" spinner generating real text, and `herdr agent explain` showed
+      `screen_detection_skip_reason: full_lifecycle_hook_authority` — confirming that Herdr does not
+      even use the screen manifest here; it has real hook authority. When the task finished (14.0s
+      reported by opencode itself), `agent_status` returned to `idle` — verified by reading the complete
+      response in the pane, matching "task actually finished", unlike Agy's static fallback. One real
+      nuance: there is a brief lag (under 1s) between submitting the prompt and the hook first reporting
+      `working` — it does not affect blocking calls (`agent prompt --wait`/`agent wait`), only a standalone
+      `agent get` without waiting immediately after submission.
+      Applied in `SKILL.md`: corrected opencode's row in the CLI table and the polling-section note that
+      mentioned it as an example of unreliable detection (only Agy remains there now).
+- [x] **The page also confirmed and explained why Claude Code/Codex work well despite being in "session
+      identity" (without real hooks) — no action needed; this is context that already fit what was
+      observed.** It confirms that actual reliability depends on whether each CLI's screen-detection
+      manifest matches its screen, not on the official category alone — Agy is also "session identity"
+      and does fail there (see the closed finding in the previous section).
+- [ ] Not tested: `herdr integration install antigravity-cli` (the correct name for Agy's integration,
+      not `agy`) — according to the docs it only provides session restoration (`agy --conversation <id>`)
+      and would not fix state detection (Agy remains "session identity", not "lifecycle authority"). Low
+      priority; it does not close the already documented problem.
 
-## Roster de CLI: Agy sale, segunda instancia de Claude Code entra (v0.41)
+## CLI roster: Agy exits, second Claude Code instance enters (v0.41)
 
-Decisión explícita del usuario, motivada directamente por los hallazgos de esta misma sesión (rondas
-v0.35-v0.39): la detección de estado de Agy nunca funcionó de verdad (fallback estático confirmado 4
-veces, incluso tras actualizar Herdr a 0.8.0 y sus manifiestos), al punto de contaminar `agent_start` y
-`agent wait`. Se preguntó explícitamente qué rol cubriría el reemplazo antes de tocar nada, dado que
-Sonnet 5 no es un modelo barato (mismo que ya usa el orquestador) — el usuario eligió la opción
-recomendada.
+Explicit user decision, directly motivated by this same session's findings (v0.35-v0.39 rounds): Agy's
+state detection never actually worked (static fallback confirmed 4 times, even after updating Herdr to
+0.8.0 and its manifests), to the point of contaminating `agent_start` and `agent wait`. The replacement
+role was explicitly asked about before touching anything, since Sonnet 5 is not a cheap model (the same
+one already used by the orchestrator) — the user chose the recommended option.
 
-- [x] **Agy sacada del roster activo de `SKILL.md`** (tabla de "Modelos fijos por CLI" y las notas
-      operativas asociadas). El hallazgo completo de por qué (detección rota) sigue documentado arriba
-      en este archivo y en `CHANGELOG.md` v0.30-v0.39 — no se borró nada, solo dejó de ser parte del
-      roster por defecto.
-- [x] **Claude Code agregado como cuarta opción lanzable** (`agent start --kind claude`), distinta de
-      su rol implícito de orquestador (esta misma sesión). Documentado un matiz nuevo: como juez da
-      independencia de *proceso/contexto* (contexto fresco), no de *modelo* (mismo proveedor que el
-      autor si el autor también es Claude Code) — preferir Codex/opencode para blind dual-judge donde
-      la independencia de modelo es el punto; reservar Claude#2 para ejecutor del patrón 1 o
-      aislamiento de contexto del patrón 5.
-- [x] **opencode pasa a ser el minion barato de model tiering** (patrón 4, Paso 3) en el lugar que
-      dejaba Agy — decisión consistente con el hallazgo ya cerrado de que opencode tiene detección de
-      estado confiable de verdad (autoridad de hook real) y corre gratis (DeepSeek V4 Flash Free).
+- [x] **Agy removed from the active roster of `SKILL.md`** (the "Fixed models per CLI" table and the
+      associated operational notes). The complete finding explaining why (broken detection) remains
+      documented above in this file and in `CHANGELOG.md` v0.30-v0.39 — nothing was deleted; it only
+      stopped being part of the default roster.
+- [x] **Claude Code added as a fourth launchable option** (`agent start --kind claude`), distinct from
+      its implicit orchestrator role (this same session). A new nuance was documented: as a judge it
+      provides *process/context* independence (fresh context), not *model* independence (same provider
+      as the author if the author is also Claude Code) — prefer Codex/opencode for blind dual-judge when
+      model independence is the point; reserve Claude#2 for the Pattern 1 executor or Pattern 5 context
+      isolation.
+- [x] **opencode becomes the cheap model-tiering minion** (Pattern 4, Step 3) in the role Agy left — a
+      decision consistent with the closed finding that opencode has genuinely reliable state detection
+      (real hook authority) and runs for free (DeepSeek V4 Flash Free).
 
-## Actualización de Herdr 0.8.0 → 0.8.2 y hallazgos del CHANGELOG.md oficial (v0.42)
+## Herdr 0.8.0 → 0.8.2 update and findings from the official CHANGELOG.md (v0.42)
 
-Pedido explícito del usuario: primero actualizar Herdr, después investigar el 0.8.2 en la web y aplicar
-lo relevante a `SKILL.md`.
+Explicit user request: first update Herdr, then investigate 0.8.2 on the web and apply what is relevant
+to `SKILL.md`.
 
-- [x] **Actualización real, mismo procedimiento que v0.38.** `brew upgrade herdr` (0.8.0 → 0.8.2,
-      bottled). `herdr status` antes de reiniciar mostró `client.version: 0.8.2`, `server.version: 0.8.0`,
-      `compatible: no`, `restart_needed: yes` — el binario del server en memoria no se actualiza solo con
-      el `brew upgrade`. Probado `herdr update --handoff`: mismo resultado que en v0.38, deshabilitado
-      para instalaciones Homebrew (`self-update is disabled for Homebrew installs`). Preguntado
-      explícitamente al usuario si reiniciaba esta sesión el server (`herdr --handoff`) o lo hacía él
-      mismo, dado que el server es compartido con otros tabs/panes — el usuario lo hizo manualmente.
-      Confirmado después: `herdr status` → `client.version`/`server.version: 0.8.2`, `compatible: yes`,
-      `restart_needed: no`.
-- [x] **Fetch de la página de releases de GitHub dio contenido no confiable — corregido leyendo el
-      `CHANGELOG.md` crudo.** `WebFetch` contra `github.com/herdrdev/herdr/releases/tag/v0.8.2` devolvió
-      una fecha imposible (2024, cuando la versión y el resto del historial ubican el release en
-      2026-08-19) y features que no aparecen en ningún otro lado (mención de integración nativa Windows
-      para "Hermes Agent"/"MastraCode" sin más contexto) — indicio de resumen alucinado por el modelo
-      chico que procesa el fetch, no de la página en sí. Recuperado leyendo
-      `raw.githubusercontent.com/herdrdev/herdr/master/CHANGELOG.md` directo con `curl` (texto crudo, sin
-      pasar por resumen de modelo) — ahí sí el release `[0.8.2] - 2026-08-19` tiene números de issue reales
-      y créditos de contribuidores consistentes con el resto del changelog (formato `(#NNNN, thanks
-      @usuario)`), mucho más confiable. **Lección para rondas futuras**: para un changelog o release
-      notes de una herramienta que este archivo cita como fuente, preferir el archivo crudo (`raw.
-      githubusercontent.com`, `git show`) antes que dejar que `WebFetch` lo resuma — más barato de
-      verificar y evita este tipo de alucinación silenciosa.
-- [x] **Dos hallazgos con impacto directo en `SKILL.md`, aplicados sin prueba en vivo propia** (a
-      diferencia de v0.38/v0.39 — acá se confía en el número de issue del changelog oficial, no se
-      repitió la prueba adversarial real):
-      1. Prompts de confirmación nativos de Claude Code (`Enter to confirm · Esc to cancel`) ahora
-         reportan `blocked` en vez de `idle` (issue #2268) — agregado como ejemplo en la nota de
-         `agent start` del Paso 4, junto al de Codex. Relevante porque Claude#2 (agregada como juez en
-         v0.41) puede toparse con este mismo tipo de prompt.
-      2. `send-keys ... shift+tab` preserva el Shift al enviarse (antes se perdía, issue #1561) — permite
-         ciclar el modo de permisos de un agente por comando. Agregado como nota corta en el Paso 4.
-- [x] **Verificado en vivo (v0.45): el fix de Claude Code (#2268) funciona — con un matiz.** Lanzada
-      una segunda instancia real (`herdr tab create` + `agent start claude-confirm-test --kind claude
-      --pane <pane>`), quedó en "auto mode" (aprueba solo por clasificador) — el primer intento de
-      escritura pasó derecho, sin diálogo, así que no sirvió para probar el fix. Sacada de auto mode con
-      `agent send-keys ... shift+tab` (esto además probó de paso el otro hallazgo, ver ítem siguiente).
-      En modo manual, un segundo pedido de escritura sí disparó el diálogo real ("Do you want to create
-      ...?"); `agent prompt --wait` devolvió `agent_status: blocked` (confirmado también con `agent
-      explain --json`: `state: blocked`, no `idle`). **Matiz encontrado**: la regla que efectivamente
-      detectó el bloqueo fue el fallback genérico `legacy_no_prompt_blocker` (prioridad 300), no una
-      regla dedicada — las reglas específicas (`generic_permission_prompt`/`bash_permission_prompt`)
-      buscan el texto "do you want to proceed?" (diálogo de Bash), pero el diálogo real del tool Write en
-      Claude Code v2.1.237 dice "Do you want to create `<archivo>`?", un texto distinto que no matchea
-      ninguna regla dedicada. El resultado final (`blocked`) es correcto igual, mediante el catch-all —
-      no cambia la recomendación de `SKILL.md` (seguir revisando `agent_status`, no el texto exacto),
-      pero confirma que el fix de 0.8.2 cubre el bug original sin agregar todavía una regla específica
-      para este diálogo puntual del tool Write. Resuelto con `agent send-keys ... enter` (aprobó "1. Yes",
-      quedó en `done`), tab de prueba (`wR:t4`) cerrado y los 2 archivos de prueba en `/tmp` borrados.
-- [x] **Verificado en vivo (v0.45): `shift+tab` preserva el Shift en `send-keys`, confirmado dos veces.**
-      Primer envío cambió el footer de "auto mode on" a "manual mode on"; segundo envío (después de
-      resolver el diálogo del ítem anterior) cambió de "manual mode on" a "accept edits on" — dos
-      transiciones de modo reales y distintas, ambas leídas del pane (`agent read --source visible`), no
-      inferidas. Confirma el fix de 0.8.2 (antes el Shift se perdía al enviarse). Sin hallazgos
-      adicionales que requieran cambiar `SKILL.md` — la nota agregada en v0.42 ya describe el
-      comportamiento correcto.
-- [x] **Otros dos hallazgos del changelog evaluados y descartados para `SKILL.md`** (no invalidan ni
-      corrigen ninguna guía activa del archivo):
-      - Fix de carrera en `agent start` esperando que el pane/shell y el primer prompt del agente estén
-        listos antes de reportar éxito (issues #2410, #2537, #2773, #2774) — la guía actual de
-        `SKILL.md` ("que devuelva no significa listo para la tarea real, revisar `agent_status`") ya
-        cubre este caso independientemente de si la carrera existía o no; no había ningún workaround
-        documentado acá que este fix vuelva obsoleto.
-      - OpenCode ahora trackea su propia conversación raíz para restore nativo sin heredar actividad de
-        clientes adjuntos (issue #2450) — es sobre *restore de sesión*, un tema distinto de la nota ya
-        existente sobre confiabilidad de *detección de estado* (`agent_status`) de opencode, que sigue
-        vigente desde v0.38 sin cambios.
+-- [x] **Real update, same procedure as v0.38.** `brew upgrade herdr` (0.8.0 → 0.8.2, bottled).
+      `herdr status` before restarting showed `client.version: 0.8.2`, `server.version: 0.8.0`,
+      `compatible: no`, `restart_needed: yes` — the in-memory server binary does not update merely with
+      `brew upgrade`. Tested `herdr update --handoff`: same result as in v0.38, disabled for Homebrew
+      installations (`self-update is disabled for Homebrew installs`). The user was explicitly asked
+      whether to restart the server for this session (`herdr --handoff`) or do it themselves, since the
+      server is shared with other tabs/panes — the user did it manually. Confirmed afterward:
+      `herdr status` → `client.version`/`server.version: 0.8.2`, `compatible: yes`, `restart_needed: no`.
+- [x] **Fetch of the GitHub releases page returned unreliable content — corrected by reading the raw
+      `CHANGELOG.md`.** `WebFetch` against `github.com/herdrdev/herdr/releases/tag/v0.8.2` returned an
+      impossible date (2024, while the version and the rest of the history place the release on
+      2026-08-19) and features appearing nowhere else (mention of native Windows integration for
+      "Hermes Agent"/"MastraCode" without further context) — evidence of a hallucinated summary by the
+      small model processing the fetch, not of the page itself. Recovered by reading
+      `raw.githubusercontent.com/herdrdev/herdr/master/CHANGELOG.md` directly with `curl` (raw text,
+      without model summarization) — there, release `[0.8.2] - 2026-08-19` does have real issue numbers
+      and contributor credits consistent with the rest of the changelog (format `(#NNNN, thanks
+      @usuario)`), much more reliable. **Lesson for future rounds**: for a changelog or release notes
+      of a tool this file cites as a source, prefer the raw file (`raw.githubusercontent.com`, `git show`)
+      before letting `WebFetch` summarize it — cheaper to verify and avoids this kind of silent
+      hallucination.
+- [x] **Two findings with direct impact on `SKILL.md`, applied without an independent live test** (unlike
+      v0.38/v0.39 — here the official changelog's issue number is trusted; the real adversarial test was
+      not repeated):
+      1. Native Claude Code confirmation prompts (`Enter to confirm · Esc to cancel`) now report `blocked`
+         instead of `idle` (issue #2268) — added as an example in the Step 4 `agent start` note, alongside
+         Codex's. Relevant because Claude#2 (added as a judge in v0.41) may encounter this same type of
+         prompt.
+      2. `send-keys ... shift+tab` preserves Shift when sent (it was previously lost, issue #1561) —
+         allows cycling an agent's permission mode by command. Added as a short note in Step 4.
+- [x] **Verified live (v0.45): the Claude Code fix (#2268) works — with a nuance.** A second real
+      instance was launched (`herdr tab create` + `agent start claude-confirm-test --kind claude
+      --pane <pane>`), and remained in "auto mode" (approves through a classifier) — the first write
+      attempt went straight through without a dialog, so it could not test the fix. Taken out of auto
+      mode with `agent send-keys ... shift+tab` (also testing the other finding; see the next item). In
+      manual mode, a second write request did trigger the real dialog ("Do you want to create ...?");
+      `agent prompt --wait` returned `agent_status: blocked` (also confirmed with `agent explain --json`:
+      `state: blocked`, not `idle`). **Nuance found**: the rule that actually detected the block was the
+      generic `legacy_no_prompt_blocker` fallback (priority 300), not a dedicated rule — the specific
+      rules (`generic_permission_prompt`/`bash_permission_prompt`) look for "do you want to proceed?"
+      (Bash dialog), but the actual Write tool dialog in Claude Code v2.1.237 says "Do you want to create
+      `<archivo>`?", different text that matches no dedicated rule. The final result (`blocked`) is still
+      correct, through the catch-all — it does not change the `SKILL.md` recommendation (continue
+      checking `agent_status`, not the exact text), but confirms that the 0.8.2 fix covers the original
+      bug without yet adding a specific rule for this particular Write tool dialog. Resolved with
+      `agent send-keys ... enter` (approved "1. Yes", ended in `done`), test tab (`wR:t4`) closed, and
+      the 2 test files in `/tmp` deleted.
+- [x] **Verified live (v0.45): `shift+tab` preserves Shift in `send-keys`, confirmed twice.** The first
+      send changed the footer from "auto mode on" to "manual mode on"; the second send (after resolving
+      the previous item's dialog) changed it from "manual mode on" to "accept edits on" — two real,
+      distinct mode transitions, both read from the pane (`agent read --source visible`), not inferred.
+      Confirms the 0.8.2 fix (previously Shift was lost when sent). No additional findings requiring a
+      change to `SKILL.md` — the note added in v0.42 already describes the correct behavior.
+- [x] **Two other changelog findings evaluated and discarded for `SKILL.md`** (they neither invalidate
+      nor correct any active guidance in the file):
+      - Race fix in `agent start` waiting for the pane/shell and the agent's first prompt to be ready
+        before reporting success (issues #2410, #2537, #2773, #2774) — the current `SKILL.md` guidance
+        ("its return does not mean it is ready for the real task; check `agent_status`") already covers
+        this case regardless of whether the race existed; no workaround documented here is made
+        obsolete by this fix.
+      - OpenCode now tracks its own root conversation for native restore without inheriting activity
+        from attached clients (issue #2450) — this concerns *session restore*, separate from the existing
+        note about opencode's *state detection* (`agent_status`) reliability, which remains valid since
+        v0.38 without changes.
 
-## Bajo / investigar
+## Low / investigate
 
-- [x] **Investigado (sin poder confirmar del todo): no se encontró evidencia de que gentle-ai haya
-      probado su "Permissions" (deny-list) contra un bypass real.** Revisada la documentación pública
-      (`docs/agents.md`, `docs/components.md`) y el directorio `e2e/` del repo — ningún archivo ni
-      mención relacionada con "bypass", "adversarial", "security test" o similar; el `e2e/` solo tiene
-      Dockerfiles de smoke-test por distro (`Dockerfile.arch`, `.fedora`, `.ubuntu`,
-      `Dockerfile.claude-network-none`) y un script `docker-test.sh`/`e2e_test.sh`, no pruebas de
-      bypass de permisos. **Limitación de esta investigación**: no se pudo hacer búsqueda de código de
-      GitHub (`*_test.go` con "permission") por requerir login — no se descartó al 100% que exista un
-      test unitario de Go cubriendo esto en `internal/`, solo que no aparece en la documentación ni en
-      `e2e/`. Su deny-list default sí es más específica que la lista de riesgo de esta skill (incluye
-      `~/Library/Keychains/*`, `.p12`, `.pfx`) — vale la pena tomarla como referencia para ampliar la
-      lista de riesgo del Paso 2 en algún momento, aunque no es parte de este TODO de seguridad.
-- [x] **Confirmado: un subagente nativo de Claude Code (Task tool) tiene escritura sin ninguna
-      restricción en Engram.** Probado en vivo: un subagente `general-purpose` lanzado con el Task tool
-      (no vía Herdr) pudo (a) llamar `mcp__plugin_engram_engram__mem_save` directo y guardar una memoria
-      real sin ningún gate — limpiada después con `engram delete <id> --hard`; y (b) ejecutar el binario
-      real `engram mcp --tools=all` por Bash sin ningún bloqueo de sandbox/permisos. A diferencia de los
-      CLIs externos (Codex/opencode/Agy), acá **no hay wrapper por `PATH` ni sandbox nativo que aplique**
-      — un subagente nativo corre con el mismo nivel de confianza que la sesión orquestadora.
-      **No es necesariamente un bug**: el diseño original de Engram (Paso 4, "search abierto, save
-      centralizado en el orquestador") ya asumía que la restricción técnica solo hacía falta contra CLIs
-      *externos* potencialmente adversariales — un subagente nativo es "nosotros mismos". Pero el texto
-      del guardrail nunca decía esto explícitamente para subagentes de Task tool, solo hablaba de CLIs
-      vía Herdr. **Aplicado**: aclarado en `SKILL.md` que `mem_save` queda reservado a la sesión
-      orquestadora *incluyendo* cuando delega a subagentes nativos — un subagente lanzado con el Task
-      tool no debería llamar `mem_save` directo, debe reportar hallazgos de vuelta al orquestador.
+- [x] **Investigated (without being able to fully confirm): no evidence was found that gentle-ai has
+      tested its "Permissions" (deny-list) against a real bypass.** Public documentation
+      (`docs/agents.md`, `docs/components.md`) and the repo's `e2e/` directory were reviewed — no file
+      or mention related to "bypass", "adversarial", "security test", or similar; `e2e/` only contains
+      distro smoke-test Dockerfiles (`Dockerfile.arch`, `.fedora`, `.ubuntu`,
+      `Dockerfile.claude-network-none`) and a `docker-test.sh`/`e2e_test.sh` script, not permission
+      bypass tests. **Limitation of this investigation**: GitHub code search (`*_test.go` with
+      "permission") could not be performed because login was required — it was not ruled out 100% that
+      a Go unit test covering this exists in `internal/`; only that it does not appear in the docs or
+      `e2e/`. Its default deny-list is more specific than this skill's risk list (it includes
+      `~/Library/Keychains/*`, `.p12`, `.pfx`) — it is worth using as a reference to expand the Step 2
+      risk list at some point, although that is not part of this security TODO.
+- [x] **Confirmed: a native Claude Code subagent (Task tool) has unrestricted write access to Engram.**
+      Tested live: a `general-purpose` subagent launched with the Task tool (not through Herdr) could
+      (a) directly call `mcp__plugin_engram_engram__mem_save` and save a real memory without any gate —
+      cleaned up afterward with `engram delete <id> --hard`; and (b) execute the real `engram mcp
+      --tools=all` binary through Bash without any sandbox/permission block. Unlike external CLIs
+      (Codex/opencode/Agy), there is **no `PATH` wrapper or native sandbox that applies here** — a native
+      subagent runs with the same trust level as the orchestrator session.
+      **Not necessarily a bug**: Engram's original design (Step 4, "open search, centralized save in
+      the orchestrator") already assumed that technical restriction was only needed against potentially
+      adversarial *external* CLIs — a native subagent is "ourselves". But the guardrail text never said
+      this explicitly for Task tool subagents; it only discussed CLIs through Herdr. **Applied**:
+      `SKILL.md` was clarified so that `mem_save` is reserved for the orchestrator session *including*
+      when it delegates to native subagents — a subagent launched with the Task tool should not call
+      `mem_save` directly; it must report findings back to the orchestrator.
