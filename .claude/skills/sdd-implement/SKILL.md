@@ -1,8 +1,8 @@
 ---
 name: "sdd-implement"
-description: "Ejecuta tasks.md de una feature de Spec Kit delegando cada fase al framework de decisión de agent-selection (agente único, delegado, o patrón multi-agente vía Herdr), en vez de ejecutar todo inline como /speckit-implement."
-argument-hint: "Guía opcional de implementación o filtro de tareas (mismo formato que /speckit-implement)"
-compatibility: "Requiere estructura de proyecto Spec Kit (.specify/) con tasks.md generado, y la skill agent-selection en este mismo repo"
+description: "Executes a Spec Kit feature's tasks.md by delegating each phase to agent-selection's decision framework (single agent, delegated, or multi-agent pattern via Herdr), instead of running everything inline like /speckit-implement."
+argument-hint: "Optional implementation guidance or task filter (same format as /speckit-implement)"
+compatibility: "Requires a Spec Kit project structure (.specify/) with tasks.md generated, and the agent-selection skill in this same repo"
 metadata:
   status: experimental
   version: "0.4"
@@ -10,17 +10,18 @@ user-invocable: true
 disable-model-invocation: false
 ---
 
-## Qué hace esta skill
+## What this skill does
 
-Reemplazo de `/speckit-implement` para este repo. Spec Kit deja las bases (`spec.md` → `plan.md` →
-`tasks.md`) con `/speckit-constitution` → `/speckit-specify` → `/speckit-plan` → `/speckit-tasks`;
-esta skill toma esas bases y las ejecuta, pero en vez de correr todo inline en la sesión actual
-(como hace `speckit-implement` nativo), evalúa **cada fase de `tasks.md`** con el framework de
-decisión de [[agent-selection]] (`.claude/skills/agent-selection/SKILL.md`) para decidir si esa fase
-se resuelve en la sesión actual, delegada a un subagente, o con un patrón multi-agente vía Herdr.
+A replacement for `/speckit-implement` in this repo. Spec Kit lays the groundwork (`spec.md` → `plan.md` →
+`tasks.md`) with `/speckit-constitution` → `/speckit-specify` → `/speckit-plan` → `/speckit-tasks`;
+this skill takes that groundwork and executes it, but instead of running everything inline in the
+current session (as native `speckit-implement` does), it evaluates **each phase of `tasks.md`** with
+the decision framework of [[agent-selection]] (`.claude/skills/agent-selection/SKILL.md`) to decide
+whether that phase gets resolved in the current session, delegated to a subagent, or handled with a
+multi-agent pattern via Herdr.
 
-`speckit-implement` sigue instalado sin tocar — es el fallback nativo si alguna vez se quiere
-ejecutar una feature sin pasar por agent-selection.
+`speckit-implement` remains installed untouched — it's the native fallback if you ever want to run a
+feature without going through agent-selection.
 
 ## User Input
 
@@ -28,109 +29,107 @@ ejecutar una feature sin pasar por agent-selection.
 $ARGUMENTS
 ```
 
-Si no está vacío, tratarlo igual que lo trataría `speckit-implement`: guía de implementación o
-filtro de qué tareas/fases correr.
+If not empty, treat it the same way `speckit-implement` would: implementation guidance or a filter
+for which tasks/phases to run.
 
-## Paso 1 — prerrequisitos y contexto (igual que `speckit-implement`, no reinventar)
+## Step 1 — prerequisites and context (same as `speckit-implement`, don't reinvent)
 
-Reusar tal cual, sin reescribir, los pasos 1-4 de `.claude/skills/speckit-implement/SKILL.md`:
+Reuse steps 1-4 of `.claude/skills/speckit-implement/SKILL.md` as-is, without rewriting them:
 
-1. Correr `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` y
-   resolver `FEATURE_DIR`/`AVAILABLE_DOCS`.
-2. Chequeo de estado de checklists (`FEATURE_DIR/checklists/`) — si hay ítems incompletos, **parar y
-   preguntar** antes de seguir, igual que el nativo.
-3. Cargar contexto: `tasks.md` (requerido), `plan.md` (requerido), `spec.md`,
-   `.specify/memory/constitution.md`, y `data-model.md`/`contracts/`/`research.md` si existen.
-4. Verificación de setup del proyecto (ignore files según stack detectado en `plan.md`) — **con
-   criterio, no ciego**: si el stack real de la feature (según `plan.md`) no genera ningún artefacto
-   que necesite ignorarse, omitir este paso explícitamente y decirlo en el reporte de la fase de
-   Setup, en vez de crear un `.gitignore` genérico con patrones de stacks que este repo no usa —
-   Principio II de la constitución (no generalizar sin necesidad concreta). Confirmado en vivo: un
-   script bash de mantenimiento (sin build ni dependencias) no ameritó `.gitignore` — ver
+1. Run `.specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks` and
+   resolve `FEATURE_DIR`/`AVAILABLE_DOCS`.
+2. Checklist status check (`FEATURE_DIR/checklists/`) — if there are incomplete items, **stop and
+   ask** before continuing, same as the native skill.
+3. Load context: `tasks.md` (required), `plan.md` (required), `spec.md`,
+   `.specify/memory/constitution.md`, and `data-model.md`/`contracts/`/`research.md` if they exist.
+4. Project setup verification (ignore files based on the stack detected in `plan.md`) — **with
+   judgment, not blindly**: if the feature's actual stack (per `plan.md`) doesn't generate any
+   artifact that needs ignoring, explicitly skip this step and say so in the Setup phase report,
+   instead of creating a generic `.gitignore` with patterns from stacks this repo doesn't use —
+   Constitution Principle II (don't generalize without a concrete need). Confirmed live: a
+   maintenance bash script (no build, no dependencies) didn't warrant a `.gitignore` — see
    `CHANGELOG.md` v0.2.
 
-Se referencia esta sección en vez de copiarla para que un cambio futuro en `speckit-implement`
-(por una actualización de `specify`) no deje a esta skill con una copia desactualizada — Principio
-VI de la constitución (concepto por encima de marca/versión puntual de la herramienta). Esto
-también aplica al resto del Paso 1: reusar por referencia no significa aplicar ciego — cualquier
-paso de `speckit-implement` que no aplique al caso real de la feature se omite explícitamente, con
-la razón, no se ejecuta solo porque el nativo lo hace incondicionalmente.
+This section is referenced instead of copied so that a future change in `speckit-implement`
+(from a `specify` update) doesn't leave this skill with an outdated copy — Constitution Principle
+VI (concept over the tool's specific brand/version). This also applies to the rest of Step 1: reusing
+by reference doesn't mean applying it blindly — any step of `speckit-implement` that doesn't apply
+to the feature's actual case is explicitly skipped, with the reason, not run just because the native
+skill does it unconditionally.
 
-## Paso 2 — parsear `tasks.md` en fases (igual que `speckit-implement`)
+## Step 2 — parse `tasks.md` into phases (same as `speckit-implement`)
 
-Extraer, en el orden en que aparecen en `tasks.md`: **Setup → Foundational → una fase por User
-Story (P1, P2, P3...) → Polish**. Por cada fase, listar sus tareas `[ID] [P?] [Story] Descripción`
-y marcar cuáles están etiquetadas `[P]` (paralelizables entre sí, tocan archivos distintos).
+Extract, in the order they appear in `tasks.md`: **Setup → Foundational → one phase per User
+Story (P1, P2, P3...) → Polish**. For each phase, list its tasks `[ID] [P?] [Story] Description`
+and mark which ones are tagged `[P]` (parallelizable with each other, touch different files).
 
-## Paso 3 — el puente: cada fase es "la tarea" para agent-selection
+## Step 3 — the bridge: each phase is "the task" for agent-selection
 
-Para cada fase, en el orden que le corresponde (nunca saltar una fase antes de que termine la
-anterior, salvo que agent-selection decida ejecutar dos fases independientes en paralelo — ver
-abajo):
+For each phase, in its corresponding order (never skip a phase before the previous one finishes,
+unless agent-selection decides to run two independent phases in parallel — see below):
 
-1. **Leer y aplicar en vivo** `.claude/skills/agent-selection/SKILL.md`, Paso 0 a Paso 6 completos,
-   tratando **el conjunto de tareas de esta fase** como "la tarea" que ese framework evalúa. No
-   resumir ni reinterpretar el framework — seguirlo tal cual está escrito ahí, incluyendo el
-   chequeo obligatorio de Herdr (Paso 0, una vez por corrida de `sdd-implement`, no por fase, salvo
-   que el Paso 6 de agent-selection detecte que Herdr cayó a mitad de camino).
-2. **Señales específicas de `tasks.md` para el Paso 1/2 de agent-selection**:
-   - El conteo de archivos de la fase = archivos distintos que tocan sus tareas (sumar, no contar
-     por tarea individual).
-   - La *lista de riesgo* del Paso 2 de agent-selection aplica igual acá: si alguna tarea de la fase
-     toca esos patrones (`.env*`, CI/CD, infra, migraciones, auth/pagos), esa fase nunca es Direct
-     inline sin importar cuántos archivos tenga.
-   - Las tareas marcadas `[P]` dentro de la fase son la señal natural para la **pregunta 4 del Paso
-     2 de agent-selection** ("¿parte del trabajo es mecánica/repetitiva y separable?") — si hay 2+
-     tareas `[P]` no triviales, es una razón concreta para escalar a un patrón multi-agente (model
-     tiering: orquestador reparte, minions ejecutan cada tarea `[P]` en paralelo) en vez de
-     ejecutarlas una por una inline.
-   - Si la fase es la de **Tests** de una user story (bajo TDD, ver `tasks.md`), esas tareas van
-     antes que las de implementación de la misma fase — el orden interno de la fase no lo decide
-     agent-selection, lo sigue dictando `tasks.md`.
-3. **Reportar con el formato del Paso 5 de agent-selection**, una vez por fase, antes de ejecutarla:
-   ruta elegida y por qué, patrón si aplica, CLI/modelo por rol si hay CLI externo involucrado.
-4. **Gate de confirmación humana** (Principio III de la constitución): si el Paso 1/2 de
-   agent-selection determina que la fase toca la lista de riesgo o es una decisión irreversible,
-   parar y pedir confirmación explícita del usuario antes de ejecutar esa fase — no asumir que
-   haber arrancado `sdd-implement` ya es luz verde para todo lo que venga.
-5. Ejecutar la fase según la ruta decidida (inline / subagente único / patrón multi-agente), con las
-   mismas reglas de coordinación por archivo que ya trae `speckit-implement` nativo: tareas que
-   tocan el mismo archivo nunca corren concurrentes, aunque estén en roles distintos de un patrón
-   multi-agente. **El cwd del Bash tool no persiste entre llamadas — confirmado en vivo (v0.3)**:
-   cada invocación de Bash arranca en el working directory primario de la sesión, sin importar qué
-   `cd` haya corrido en una llamada anterior; solo sobrevive dentro de la misma invocación compuesta
-   (`cd /ruta/absoluta && comando`). Para comandos de fase que dependen de un cwd específico (tests,
-   builds, scripts que leen `.env` relativo), prefijar siempre `cd /ruta/absoluta/de/la/fase &&` en el
-   mismo comando — nunca asumir que un `cd` de un paso anterior se mantiene. Un fallo que parece de
-   código (variable de entorno faltante, módulo no encontrado) puede ser en realidad esto.
-6. **Marcar `[X]` en `tasks.md`** cada tarea de la fase a medida que se confirma terminada — sin
-   importar si la ejecutó esta sesión, un subagente delegado, o un rol de un patrón multi-agente.
-   Esta sesión (el orquestador) es la única que edita `tasks.md` — un CLI delegado nunca escribe
-   directamente sobre `tasks.md`, reporta de vuelta y el orquestador marca.
-7. **Fallos a mitad de fase**: aplicar el Paso 6 de agent-selection tal cual (timeouts explícitos,
-   nunca esperar indefinido, limpiar tabs huérfanos, degradación con resultados parciales reportada
-   explícitamente) — mismo criterio que ya usa `speckit-implement` de "halt si falla una tarea no
-   paralela, seguir y reportar si falla una `[P]`", combinado con las reglas de Herdr. **Extensión a
-   infra externa (v0.3)**: el mismo principio del Paso 6 punto 2 de agent-selection ("Herdr puede caer
-   a mitad de camino, sin señal proactiva — se detecta porque el siguiente comando falla") aplica a
-   cualquier dependencia externa que la fase necesite (DB, contenedores Docker/OrbStack, servicios
-   locales) — si una fase que depende de infra externa falla de forma rara, verificar primero que esa
-   infra siga viva antes de asumir que el fallo es del código.
+1. **Read and apply live** `.claude/skills/agent-selection/SKILL.md`, Step 0 through Step 6 in full,
+   treating **this phase's set of tasks** as "the task" that framework evaluates. Don't summarize or
+   reinterpret the framework — follow it exactly as written there, including the mandatory Herdr
+   check (Step 0, once per `sdd-implement` run, not per phase, unless Step 6 of agent-selection
+   detects that Herdr went down midway).
+2. **`tasks.md`-specific signals for agent-selection's Step 1/2**:
+   - The phase's file count = the distinct files its tasks touch (sum them, don't count per
+     individual task).
+   - The *risk list* from agent-selection's Step 2 applies here too: if any task in the phase
+     touches those patterns (`.env*`, CI/CD, infra, migrations, auth/payments), that phase is never
+     Direct inline no matter how few files it has.
+   - Tasks marked `[P]` within the phase are the natural signal for **question 4 of agent-selection's
+     Step 2** ("is part of the work mechanical/repetitive and separable?") — if there are 2+
+     non-trivial `[P]` tasks, that's a concrete reason to escalate to a multi-agent pattern (model
+     tiering: orchestrator distributes, minions execute each `[P]` task in parallel) instead of
+     running them one by one inline.
+   - If the phase is the **Tests** phase of a user story (under TDD, per `tasks.md`), those tasks go
+     before the implementation tasks of the same phase — the phase's internal order isn't decided by
+     agent-selection, it's still dictated by `tasks.md`.
+3. **Report using agent-selection's Step 5 format**, once per phase, before executing it: chosen
+   route and why, pattern if applicable, CLI/model per role if an external CLI is involved.
+4. **Human confirmation gate** (Constitution Principle III): if agent-selection's Step 1/2 determines
+   that the phase touches the risk list or is an irreversible decision, stop and ask for explicit
+   user confirmation before executing that phase — don't assume that having started `sdd-implement`
+   is already a green light for everything that follows.
+5. Execute the phase according to the decided route (inline / single subagent / multi-agent
+   pattern), with the same per-file coordination rules that native `speckit-implement` already
+   brings: tasks that touch the same file never run concurrently, even if they're in different roles
+   of a multi-agent pattern. **The Bash tool's cwd does not persist between calls — confirmed live
+   (v0.3)**: every Bash invocation starts in the session's primary working directory, regardless of
+   what `cd` ran in a previous call; it only survives within the same compound invocation
+   (`cd /absolute/path && command`). For phase commands that depend on a specific cwd (tests, builds,
+   scripts that read a relative `.env`), always prefix `cd /absolute/path/of/the/phase &&` in the
+   same command — never assume a `cd` from a previous step persists. A failure that looks like a
+   code issue (missing environment variable, module not found) could actually be this.
+6. **Mark `[X]` in `tasks.md`** for each phase task as it's confirmed done — regardless of whether it
+   was executed by this session, a delegated subagent, or a role in a multi-agent pattern. This
+   session (the orchestrator) is the only one that edits `tasks.md` — a delegated CLI never writes
+   directly to `tasks.md`, it reports back and the orchestrator marks it.
+7. **Mid-phase failures**: apply agent-selection's Step 6 as-is (explicit timeouts, never wait
+   indefinitely, clean up orphaned tabs, degradation with partial results explicitly reported) —
+   same criterion `speckit-implement` already uses of "halt if a non-parallel task fails, continue and
+   report if a `[P]` task fails," combined with Herdr's rules. **Extension to external infra (v0.3)**:
+   the same principle from agent-selection's Step 6 point 2 ("Herdr can go down midway, with no
+   proactive signal — it's detected because the next command fails") applies to any external
+   dependency the phase needs (DB, Docker/OrbStack containers, local services) — if a phase that
+   depends on external infra fails in an odd way, verify first that infra is still alive before
+   assuming the failure is in the code.
 
-## Paso 4 — cierre
+## Step 4 — closing
 
-Igual que el "Done When" de `speckit-implement`, más el detalle por fase:
+Same as `speckit-implement`'s "Done When", plus the per-phase detail:
 
-- [ ] Todas las tareas de `tasks.md` marcadas `[X]` (o explícitamente reportadas como no
-      completadas, con la razón).
-- [ ] Por cada fase: qué ruta de agent-selection se usó y por qué (resumen, no hace falta repetir
-      el detalle completo del Paso 5 de agent-selection ya reportado antes de ejecutarla).
-- [ ] Cualquier degradación (Paso 6 de agent-selection) reportada explícitamente, nunca ocultada.
-- [ ] Implementación validada contra `spec.md`/`plan.md`, igual que exige `speckit-implement`.
+- [ ] All `tasks.md` tasks marked `[X]` (or explicitly reported as not completed, with the reason).
+- [ ] For each phase: which agent-selection route was used and why (summary, no need to repeat the
+      full detail of agent-selection's Step 5 already reported before executing it).
+- [ ] Any degradation (agent-selection's Step 6) explicitly reported, never hidden.
+- [ ] Implementation validated against `spec.md`/`plan.md`, same as `speckit-implement` requires.
 
-## Notas
+## Notes
 
-- Esta skill no reemplaza `speckit-converge` ni `speckit-analyze` — siguen corriendo igual después,
-  porque el formato de `tasks.md` (checkboxes `[X]`) no cambia.
-- No cubre las fases de "proposal" ni "review/verify + archive" que le faltan a Spec Kit (ver
-  memoria de decisión sobre el roadmap SDD) — quedan fuera de alcance por ahora, archivadas.
+- This skill doesn't replace `speckit-converge` or `speckit-analyze` — they keep running the same
+  way afterward, because the `tasks.md` format (`[X]` checkboxes) doesn't change.
+- It doesn't cover the "proposal" or "review/verify + archive" phases that Spec Kit is missing (see
+  the decision memory on the SDD roadmap) — out of scope for now, archived.

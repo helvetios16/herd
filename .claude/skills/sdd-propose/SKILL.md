@@ -1,8 +1,8 @@
 ---
 name: "sdd-propose"
-description: "Encuadra una feature de Spec Kit antes de especificarla, dejando problema, alcance, archivos afectados, riesgos y rollback en una propuesta trazable."
-argument-hint: "Describe la feature que quieres encuadrar"
-compatibility: "Requiere estructura de proyecto Spec Kit con .specify/ y el script .specify/scripts/bash/create-new-feature.sh"
+description: "Frames a Spec Kit feature before specifying it, capturing problem, scope, affected files, risks, and rollback in a traceable proposal."
+argument-hint: "Describe the feature you want to frame"
+compatibility: "Requires a Spec Kit project structure with .specify/ and the script .specify/scripts/bash/create-new-feature.sh"
 metadata:
   status: experimental
   version: "0.1"
@@ -10,17 +10,17 @@ user-invocable: true
 disable-model-invocation: false
 ---
 
-## Qué hace esta skill
+## What this skill does
 
-Primer paso del ciclo SDD para este repo. Recibe una descripción de feature en lenguaje natural,
-reusa el mecanismo de Spec Kit para crear un directorio numerado bajo `specs/`, y escribe ahí un
-`proposal.md` con el encuadre mínimo antes de pasar a `/speckit-specify`: problema, alcance incluido,
-alcance excluido, archivos afectados, riesgos y rollback.
+First step of the SDD cycle for this repo. It takes a natural-language feature description,
+reuses the Spec Kit mechanism to create a numbered directory under `specs/`, and writes there a
+`proposal.md` with the minimal framing before moving on to `/speckit-specify`: problem, scope
+included, scope excluded, affected files, risks, and rollback.
 
-La numeración y la creación inicial del directorio no se reimplementan acá: siempre las resuelve
-`.specify/scripts/bash/create-new-feature.sh`, que también persiste `.specify/feature.json`. La
-carpeta resultante se entrega explícitamente como `SPECIFY_FEATURE_DIRECTORY` para que la siguiente
-corrida de `/speckit-specify` escriba `spec.md` junto a `proposal.md`.
+Numbering and initial directory creation are not reimplemented here: they are always resolved by
+`.specify/scripts/bash/create-new-feature.sh`, which also persists `.specify/feature.json`. The
+resulting folder is explicitly handed off as `SPECIFY_FEATURE_DIRECTORY` so that the next
+run of `/speckit-specify` writes `spec.md` alongside `proposal.md`.
 
 ## User Input
 
@@ -28,109 +28,109 @@ corrida de `/speckit-specify` escriba `spec.md` junto a `proposal.md`.
 $ARGUMENTS
 ```
 
-La descripción que el usuario escribió después de `/sdd-propose` es el input de la feature. Si está
-vacía, informar `No feature description provided` y no crear ningún directorio ni archivo.
+The description the user wrote after `/sdd-propose` is the feature input. If it is
+empty, report `No feature description provided` and do not create any directory or file.
 
-## Paso 1 — validar el input y cargar el criterio
+## Step 1 — validate the input and load the criteria
 
-1. Considerar la descripción completa de `$ARGUMENTS` antes de proponer nada. Extraer actores,
-   problema, acción deseada, datos y restricciones que estén presentes.
-2. Leer `.specify/memory/constitution.md` y aplicar sus seis principios, especialmente no
-   generalizar sin una necesidad concreta, mantener la trazabilidad de versión y separar el
-   concepto transferible de la marca o herramienta puntual.
-3. Si falta una decisión que cambia materialmente el alcance y no hay un supuesto razonable,
-   marcarla con `[NEEDS CLARIFICATION: pregunta concreta]`. Usar como máximo 3 marcadores en total,
-   priorizados por alcance, seguridad/privacidad y experiencia de usuario. No inventar datos para
-   evitar una aclaración. Presentar las preguntas y esperar respuesta antes de cerrar la propuesta.
-4. No usar placeholders genéricos como `[FEATURE NAME]`, `[DATE]`, `TBD` o `N/A`. Un marcador
-   `NEEDS CLARIFICATION` es la única excepción permitida cuando la ambigüedad es material; al
-   recibir la respuesta, reemplazarlo por una decisión concreta.
+1. Consider the full description in `$ARGUMENTS` before proposing anything. Extract actors,
+   problem, desired action, data, and constraints that are present.
+2. Read `.specify/memory/constitution.md` and apply its six principles, especially not
+   generalizing without a concrete need, maintaining version traceability, and separating the
+   transferable concept from the specific brand or tool.
+3. If a decision that materially changes the scope is missing and there is no reasonable
+   assumption, mark it with `[NEEDS CLARIFICATION: concrete question]`. Use at most 3 markers total,
+   prioritized by scope, security/privacy, and user experience. Do not invent data to
+   avoid a clarification. Present the questions and wait for an answer before closing the proposal.
+4. Do not use generic placeholders like `[FEATURE NAME]`, `[DATE]`, `TBD`, or `N/A`. A
+   `NEEDS CLARIFICATION` marker is the only exception allowed when the ambiguity is material; once
+   the answer is received, replace it with a concrete decision.
 
-## Paso 2 — crear el directorio de la feature con el mecanismo existente
+## Step 2 — create the feature directory with the existing mechanism
 
-1. Con la descripción disponible, derivar un nombre corto de 2 a 4 palabras, en formato de acción
-   o concepto, para pasárselo a `create-new-feature.sh` solo si hace falta fijar el nombre. No
-   inventar un prefijo numérico ni escanear `specs/` para numerar.
-2. Ejecutar `.specify/scripts/bash/create-new-feature.sh` con la descripción de la feature y
-   `--json`. Reusar el script tal cual; no copiar ni reimplementar su algoritmo de numeración,
-   resolución de templates, creación de `spec.md` o persistencia de `.specify/feature.json`.
-3. Tomar el `SPEC_FILE` y `FEATURE_NUM` devueltos por el script como evidencia. El directorio de
-   la feature es el directorio que contiene ese `SPEC_FILE`; conservar la ruta exacta, incluyendo
-   `specs/` y el prefijo numérico. Si el script falla, reportar el error y no escribir una
-   propuesta en otra carpeta.
-4. Usar el directorio resuelto por el script como `SPECIFY_FEATURE_DIRECTORY` para todo lo que
-   sigue. No crear una segunda carpeta, aunque el nombre de la rama y el nombre del directorio
-   difieran.
+1. With the description available, derive a short name of 2 to 4 words, in action or
+   concept form, to pass to `create-new-feature.sh` only if it's necessary to set the name. Do not
+   invent a numeric prefix or scan `specs/` to number it.
+2. Run `.specify/scripts/bash/create-new-feature.sh` with the feature description and
+   `--json`. Reuse the script as-is; do not copy or reimplement its numbering algorithm,
+   template resolution, `spec.md` creation, or `.specify/feature.json` persistence.
+3. Take the `SPEC_FILE` and `FEATURE_NUM` returned by the script as evidence. The feature
+   directory is the directory containing that `SPEC_FILE`; keep the exact path, including
+   `specs/` and the numeric prefix. If the script fails, report the error and do not write a
+   proposal in another folder.
+4. Use the directory resolved by the script as `SPECIFY_FEATURE_DIRECTORY` for everything that
+   follows. Do not create a second folder, even if the branch name and the directory name
+   differ.
 
-## Paso 3 — redactar `proposal.md`
+## Step 3 — draft `proposal.md`
 
-Escribir `SPECIFY_FEATURE_DIRECTORY/proposal.md` con estas seis secciones exactas y en este orden.
-Los encabezados deben conservar estos nombres de campo del modelo de datos:
+Write `SPECIFY_FEATURE_DIRECTORY/proposal.md` with these six exact sections, in this order.
+The headings must keep these data-model field names:
 
-1. `## problema` — qué situación concreta motiva la feature, quién la sufre y qué valor se busca.
-2. `## alcance_incluye` — lista concreta de lo que entra en esta feature.
-3. `## alcance_excluye` — lista concreta de lo que queda fuera, incluyendo límites que eviten
-   generalizar más allá del caso real.
-4. `## archivos_afectados` — rutas o patrones de archivos que probablemente se crearán, leerán o
-   modificarán. Si todavía no se puede conocer una ruta exacta, describir el patrón y el motivo,
-   sin convertirlo en una lista genérica de archivos posibles.
-5. `## riesgos` — riesgos específicos de la feature, mitigaciones conocidas y estado de la
-   revisión de la lista de riesgo de `agent-selection`.
-6. `## rollback` — pasos concretos para revertir la feature y devolver el estado anterior; si la
-   reversión requiere una decisión o una acción irreversible, dejarlo señalado.
+1. `## problema` — what concrete situation motivates the feature, who suffers from it, and what value is sought.
+2. `## alcance_incluye` — a concrete list of what's in for this feature.
+3. `## alcance_excluye` — a concrete list of what's out, including boundaries that prevent
+   generalizing beyond the real case.
+4. `## archivos_afectados` — paths or file patterns that will likely be created, read, or
+   modified. If an exact path can't yet be determined, describe the pattern and the reason,
+   without turning it into a generic list of possible files.
+5. `## riesgos` — feature-specific risks, known mitigations, and the review status of the
+   `agent-selection` risk list.
+6. `## rollback` — concrete steps to revert the feature and restore the prior state; if the
+   reversal requires a decision or an irreversible action, flag it.
 
-Escribir contenido derivado de `$ARGUMENTS`, contexto del repo y supuestos razonables. Documentar
-los supuestos dentro de la sección relevante o al final de `## problema` como `Supuestos`; no
-agregar una séptima sección de modelo ni dejar texto de plantilla sin resolver. La propuesta debe
-ser legible para quien va a decidir el alcance y no debe convertirse en un plan de implementación
-detallado.
+Write content derived from `$ARGUMENTS`, repo context, and reasonable assumptions. Document
+assumptions within the relevant section or at the end of `## problema` as `Supuestos`; do not
+add a seventh section to the model or leave unresolved template text. The proposal should
+be readable for whoever will decide the scope and must not become a detailed
+implementation plan.
 
-## Paso 4 — revisar explícitamente el riesgo antes del cierre
+## Step 4 — explicitly review risk before closing
 
-En `## riesgos`, revisar los archivos y límites identificados contra la lista de riesgo del Paso 2
-de `.claude/skills/agent-selection/SKILL.md`: `.env*` y otros archivos de entorno, SSH o
-credenciales, configuración de CI/CD, infraestructura, migraciones de base de datos, configuración
-de producción/deploy, y auth, pagos o borrado masivo de datos.
+In `## riesgos`, review the identified files and boundaries against the risk list from Step 2
+of `.claude/skills/agent-selection/SKILL.md`: `.env*` and other environment files, SSH or
+credentials, CI/CD configuration, infrastructure, database migrations, production/deploy
+configuration, and auth, payments, or bulk data deletion.
 
-Dejar una conclusión explícita, incluso cuando no haya coincidencias:
+Leave an explicit conclusion, even when there are no matches:
 
-- `Lista de riesgo de agent-selection: no detectada` y explicar brevemente qué se revisó; o
-- `Lista de riesgo de agent-selection: detectada` indicando el patrón o archivo concreto y por qué
-  aplica.
+- `Lista de riesgo de agent-selection: no detectada`, briefly explaining what was reviewed; or
+- `Lista de riesgo de agent-selection: detectada`, indicating the specific pattern or file and why
+  it applies.
 
-Si se detecta un riesgo, no decidir por cuenta propia que la feature puede seguir adelante. Marcar
-`CONFIRMACIÓN HUMANA REQUERIDA` en la sección de riesgos y en el Completion Report, y detener
-cualquier paso posterior de especificación o implementación hasta que el usuario confirme
-explícitamente cómo continuar. La detección no autoriza migraciones, deploys, exposición de secretos,
-cambios de auth/pagos ni borrados.
+If a risk is detected, do not decide on your own that the feature can move forward. Mark
+`CONFIRMACIÓN HUMANA REQUERIDA` in the risks section and in the Completion Report, and stop
+any further specification or implementation step until the user explicitly confirms
+how to proceed. Detection does not authorize migrations, deploys, exposure of secrets,
+auth/payments changes, or deletions.
 
-## Paso 5 — Completion Report
+## Step 5 — Completion Report
 
-Terminar con un reporte al usuario que incluya:
+Finish with a report to the user that includes:
 
-- `SPECIFY_FEATURE_DIRECTORY`: el valor exacto de la ruta resuelta, por ejemplo
+- `SPECIFY_FEATURE_DIRECTORY`: the exact resolved path value, for example
   `specs/003-user-auth`.
-- `SPEC_FILE`: la ruta exacta devuelta por `create-new-feature.sh`.
-- `proposal.md`: confirmación de que fue escrito dentro de `SPECIFY_FEATURE_DIRECTORY` y que
-  contiene las seis secciones requeridas.
-- `Riesgo`: resultado explícito de la revisión de `agent-selection`; si aplica, el gate de
-  confirmación humana pendiente.
-- `Siguiente paso`: la invocación de `/speckit-specify` usando exactamente ese valor, por ejemplo
-  `SPECIFY_FEATURE_DIRECTORY=specs/003-user-auth /speckit-specify <descripción de la feature>`.
+- `SPEC_FILE`: the exact path returned by `create-new-feature.sh`.
+- `proposal.md`: confirmation that it was written inside `SPECIFY_FEATURE_DIRECTORY` and that it
+  contains the six required sections.
+- `Riesgo`: explicit result of the `agent-selection` review; if applicable, the pending human
+  confirmation gate.
+- `Siguiente paso`: the `/speckit-specify` invocation using exactly that value, for example
+  `SPECIFY_FEATURE_DIRECTORY=specs/003-user-auth /speckit-specify <feature description>`.
 
-No afirmar que `spec.md` fue creado por esta skill: lo crea `/speckit-specify`. Recordar que el
-script ya dejó la ruta persistida en `.specify/feature.json`, pero aun así entregar el valor
-explícito de `SPECIFY_FEATURE_DIRECTORY` para el siguiente comando.
+Do not claim that `spec.md` was created by this skill: it is created by `/speckit-specify`. Remember that the
+script already persisted the path in `.specify/feature.json`, but still hand off the
+explicit `SPECIFY_FEATURE_DIRECTORY` value for the next command.
 
 ## Done When
 
-- [ ] Se rechazó el input vacío sin crear archivos.
-- [ ] Se ejecutó `create-new-feature.sh` para resolver el directorio numerado y no se reimplementó
-      su numeración.
-- [ ] Existe `proposal.md` en la carpeta devuelta por el script.
-- [ ] `proposal.md` tiene `problema`, `alcance_incluye`, `alcance_excluye`, `archivos_afectados`,
-      `riesgos` y `rollback`, sin placeholders genéricos sin resolver.
-- [ ] La revisión de riesgo de `agent-selection` quedó explícita y cualquier coincidencia quedó
-      bloqueada para confirmación humana.
-- [ ] El Completion Report deja el valor exacto de `SPECIFY_FEATURE_DIRECTORY` para
+- [ ] Empty input was rejected without creating any files.
+- [ ] `create-new-feature.sh` was run to resolve the numbered directory and its numbering was
+      not reimplemented.
+- [ ] `proposal.md` exists in the folder returned by the script.
+- [ ] `proposal.md` has `problema`, `alcance_incluye`, `alcance_excluye`, `archivos_afectados`,
+      `riesgos`, and `rollback`, with no unresolved generic placeholders.
+- [ ] The `agent-selection` risk review was made explicit and any match was
+      blocked pending human confirmation.
+- [ ] The Completion Report leaves the exact `SPECIFY_FEATURE_DIRECTORY` value for
       `/speckit-specify`.
