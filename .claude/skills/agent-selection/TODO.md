@@ -480,12 +480,30 @@ lo relevante a `SKILL.md`.
          v0.41) puede toparse con este mismo tipo de prompt.
       2. `send-keys ... shift+tab` preserva el Shift al enviarse (antes se perdía, issue #1561) — permite
          ciclar el modo de permisos de un agente por comando. Agregado como nota corta en el Paso 4.
-- [ ] **Pendiente de verificación en vivo, baja prioridad**: confirmar el fix de Claude Code (#2268) con
-      una prueba real — lanzar Claude#2 vía `agent start --kind claude`, forzar un prompt de
-      confirmación real, y leer `.result.agent.agent_status` para comprobar que da `blocked` y no
-      `idle`. No bloqueante: el hallazgo viene de un changelog oficial con número de issue, no de
-      especulación, pero esta skill privilegia prueba real sobre fuente externa cuando hay tensión
-      (ver preámbulo de `SKILL.md`).
+- [x] **Verificado en vivo (v0.45): el fix de Claude Code (#2268) funciona — con un matiz.** Lanzada
+      una segunda instancia real (`herdr tab create` + `agent start claude-confirm-test --kind claude
+      --pane <pane>`), quedó en "auto mode" (aprueba solo por clasificador) — el primer intento de
+      escritura pasó derecho, sin diálogo, así que no sirvió para probar el fix. Sacada de auto mode con
+      `agent send-keys ... shift+tab` (esto además probó de paso el otro hallazgo, ver ítem siguiente).
+      En modo manual, un segundo pedido de escritura sí disparó el diálogo real ("Do you want to create
+      ...?"); `agent prompt --wait` devolvió `agent_status: blocked` (confirmado también con `agent
+      explain --json`: `state: blocked`, no `idle`). **Matiz encontrado**: la regla que efectivamente
+      detectó el bloqueo fue el fallback genérico `legacy_no_prompt_blocker` (prioridad 300), no una
+      regla dedicada — las reglas específicas (`generic_permission_prompt`/`bash_permission_prompt`)
+      buscan el texto "do you want to proceed?" (diálogo de Bash), pero el diálogo real del tool Write en
+      Claude Code v2.1.237 dice "Do you want to create `<archivo>`?", un texto distinto que no matchea
+      ninguna regla dedicada. El resultado final (`blocked`) es correcto igual, mediante el catch-all —
+      no cambia la recomendación de `SKILL.md` (seguir revisando `agent_status`, no el texto exacto),
+      pero confirma que el fix de 0.8.2 cubre el bug original sin agregar todavía una regla específica
+      para este diálogo puntual del tool Write. Resuelto con `agent send-keys ... enter` (aprobó "1. Yes",
+      quedó en `done`), tab de prueba (`wR:t4`) cerrado y los 2 archivos de prueba en `/tmp` borrados.
+- [x] **Verificado en vivo (v0.45): `shift+tab` preserva el Shift en `send-keys`, confirmado dos veces.**
+      Primer envío cambió el footer de "auto mode on" a "manual mode on"; segundo envío (después de
+      resolver el diálogo del ítem anterior) cambió de "manual mode on" a "accept edits on" — dos
+      transiciones de modo reales y distintas, ambas leídas del pane (`agent read --source visible`), no
+      inferidas. Confirma el fix de 0.8.2 (antes el Shift se perdía al enviarse). Sin hallazgos
+      adicionales que requieran cambiar `SKILL.md` — la nota agregada en v0.42 ya describe el
+      comportamiento correcto.
 - [x] **Otros dos hallazgos del changelog evaluados y descartados para `SKILL.md`** (no invalidan ni
       corrigen ninguna guía activa del archivo):
       - Fix de carrera en `agent start` esperando que el pane/shell y el primer prompt del agente estén
